@@ -125,8 +125,8 @@ const T = {
 // HELPERS
 // ============================================================
 const STATUS_COLORS = {
-  new: "#3B82F6", processing: "#F59E0B", shipped: "#8B5CF6",
-  completed: "#10B981", cancelled: "#EF4444"
+  new: "#2B58A1", processing: "#FF9900", shipped: "#38B3DE",
+  completed: "#38B3DE", cancelled: "#F44336"
 };
 const STATUS_KEYS = { new: "status_new", processing: "status_processing", shipped: "status_shipped", completed: "status_completed", cancelled: "status_cancelled" };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
@@ -138,83 +138,92 @@ const fmtMoney = (n) => n ? `${Number(n).toFixed(2)} zł` : "—";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', sans-serif; background: #0F0F0F; color: #F0EDE8; }
-  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #1A1A1A; }
-  ::-webkit-scrollbar-thumb { background: #3A3A3A; border-radius: 3px; }
+  body { font-family: 'Inter', sans-serif; background: #F4F5F7; color: #1A1A1A; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #F0F2F5; }
+  ::-webkit-scrollbar-thumb { background: #C8D0DC; border-radius: 3px; }
   .crm-root { display: flex; min-height: 100vh; }
-  .sidebar { width: 220px; min-height: 100vh; background: #141414; border-right: 1px solid #2A2A2A; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
-  .sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid #2A2A2A; }
-  .sidebar-logo h1 { font-size: 15px; font-weight: 700; color: #C9A84C; letter-spacing: 0.05em; }
-  .sidebar-logo p { font-size: 11px; color: #666; margin-top: 2px; }
-  .sidebar-nav { flex: 1; padding: 12px 0; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; font-size: 13px; color: #888; transition: all 0.15s; border-left: 3px solid transparent; }
-  .nav-item:hover { color: #F0EDE8; background: #1E1E1E; }
-  .nav-item.active { color: #C9A84C; background: #1E1E1E; border-left-color: #C9A84C; }
+  .sidebar { width: 220px; min-height: 100vh; background: #2B58A1; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+  .sidebar-logo { padding: 20px 16px 16px; border-bottom: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .sidebar-logo .cv-badge { width: 52px; height: 52px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .sidebar-logo h1 { font-size: 11px; font-weight: 600; color: #fff; letter-spacing: 0.08em; text-transform: uppercase; }
+  .sidebar-logo p { font-size: 9px; color: rgba(255,255,255,0.45); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.14em; }
+  .sidebar-nav { flex: 1; padding: 10px 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; cursor: pointer; font-size: 12.5px; color: rgba(255,255,255,0.55); transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  .nav-item.active { color: #fff; background: rgba(56,179,222,0.15); border-left-color: #38B3DE; }
   .nav-icon { width: 16px; height: 16px; opacity: 0.7; }
   .nav-item.active .nav-icon { opacity: 1; }
-  .sidebar-bottom { padding: 16px 20px; border-top: 1px solid #2A2A2A; }
-  .lang-switcher { display: flex; gap: 6px; }
-  .lang-btn { padding: 4px 8px; border-radius: 4px; border: 1px solid #2A2A2A; background: transparent; color: #888; font-size: 11px; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
-  .lang-btn.active { background: #C9A84C; color: #000; border-color: #C9A84C; font-weight: 600; }
-  .main { margin-left: 220px; min-height: 100vh; padding: 0; }
-  .topbar { padding: 16px 28px; border-bottom: 1px solid #2A2A2A; display: flex; align-items: center; justify-content: space-between; background: #141414; position: sticky; top: 0; z-index: 50; }
-  .topbar-title { font-size: 18px; font-weight: 600; }
+  .sidebar-bottom { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .lang-switcher { display: flex; gap: 5px; }
+  .lang-btn { padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: rgba(255,255,255,0.5); font-size: 10px; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
+  .lang-btn.active { background: #38B3DE; color: #fff; border-color: #38B3DE; font-weight: 600; }
+  .main { margin-left: 220px; min-height: 100vh; padding: 0; background: #F4F5F7; }
+  .topbar { padding: 14px 28px; border-bottom: 1px solid #E0E4EA; display: flex; align-items: center; justify-content: space-between; background: #fff; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 17px; font-weight: 600; color: #2B58A1; }
   .topbar-actions { display: flex; gap: 10px; align-items: center; }
   .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; font-family: 'Inter', sans-serif; }
-  .btn-primary { background: #C9A84C; color: #000; }
-  .btn-primary:hover { background: #D4B460; }
-  .btn-secondary { background: #2A2A2A; color: #F0EDE8; }
-  .btn-secondary:hover { background: #333; }
-  .btn-danger { background: #EF4444; color: #fff; }
+  .btn-primary { background: #2B58A1; color: #fff; }
+  .btn-primary:hover { background: #234A8A; }
+  .btn-secondary { background: #F0F2F5; color: #2B58A1; border: 1px solid #E0E4EA; }
+  .btn-secondary:hover { background: #E4E8EF; }
+  .btn-danger { background: #F44336; color: #fff; }
   .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .content { padding: 24px 28px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat-card { background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 10px; padding: 20px; }
-  .stat-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .stat-value { font-size: 26px; font-weight: 700; color: #F0EDE8; }
-  .stat-sub { font-size: 12px; color: #C9A84C; margin-top: 4px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .card { background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 10px; padding: 20px; }
-  .card-title { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+  .content { padding: 22px 28px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border: 0.5px solid #E0E4EA; border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 12px; }
+  .stat-icon { width: 38px; height: 38px; border-radius: 8px; background: #E0F7FC; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #38B3DE; font-size: 18px; }
+  .stat-icon.blue { background: #E3F2FD; color: #2B58A1; }
+  .stat-label { font-size: 10px; color: #8A95A5; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .stat-value { font-size: 20px; font-weight: 600; color: #2B58A1; line-height: 1; }
+  .stat-sub { font-size: 10px; color: #B0B8C4; margin-top: 3px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .card { background: #fff; border: 0.5px solid #E0E4EA; border-radius: 10px; padding: 18px; }
+  .card-title { font-size: 10px; font-weight: 600; color: #8A95A5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
   .table { width: 100%; border-collapse: collapse; }
-  .table th { text-align: left; padding: 10px 12px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #2A2A2A; }
-  .table td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid #1E1E1E; }
-  .table tr:hover td { background: #1E1E1E; }
+  .table th { text-align: left; padding: 9px 12px; font-size: 10px; color: #8A95A5; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 0.5px solid #E0E4EA; background: #F8F9FB; font-weight: 500; }
+  .table td { padding: 11px 12px; font-size: 13px; border-bottom: 0.5px solid #F0F2F5; color: #1A1A1A; }
+  .table tr:hover td { background: #F8F9FB; }
   .table tr:last-child td { border-bottom: none; }
-  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
-  .search-bar { width: 100%; padding: 10px 14px; background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 8px; color: #F0EDE8; font-size: 13px; margin-bottom: 16px; font-family: 'Inter', sans-serif; }
-  .search-bar:focus { outline: none; border-color: #C9A84C; }
-  .input { width: 100%; padding: 9px 12px; background: #1E1E1E; border: 1px solid #2A2A2A; border-radius: 6px; color: #F0EDE8; font-size: 13px; font-family: 'Inter', sans-serif; }
-  .input:focus { outline: none; border-color: #C9A84C; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; color: #fff; }
+  .badge-new { background: #2B58A1; }
+  .badge-processing { background: #FF9900; }
+  .badge-shipped { background: #38B3DE; }
+  .badge-completed { background: #38B3DE; }
+  .badge-cancelled { background: #F44336; }
+  .search-bar { width: 100%; padding: 9px 14px; background: #fff; border: 0.5px solid #E0E4EA; border-radius: 7px; color: #1A1A1A; font-size: 13px; margin-bottom: 14px; font-family: 'Inter', sans-serif; }
+  .search-bar:focus { outline: none; border-color: #38B3DE; }
+  .input { width: 100%; padding: 9px 12px; background: #fff; border: 0.5px solid #E0E4EA; border-radius: 6px; color: #1A1A1A; font-size: 13px; font-family: 'Inter', sans-serif; }
+  .input:focus { outline: none; border-color: #38B3DE; }
   select.input { cursor: pointer; }
   .form-group { margin-bottom: 14px; }
-  .form-label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; }
+  .form-label { display: block; font-size: 12px; color: #6B7A8D; margin-bottom: 6px; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .modal { background: #1A1A1A; border: 1px solid #2A2A2A; border-radius: 12px; padding: 28px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; }
-  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: #fff; border: 0.5px solid #E0E4EA; border-radius: 12px; padding: 28px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(43,88,161,0.12); }
+  .modal-title { font-size: 16px; font-weight: 600; color: #2B58A1; margin-bottom: 20px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
   .client-row { cursor: pointer; }
-  .client-row:hover td { background: #222 !important; }
+  .client-row:hover td { background: #F8F9FB !important; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   .bar-chart { display: flex; flex-direction: column; gap: 8px; }
   .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-  .bar-label { width: 100px; color: #888; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar-track { flex: 1; height: 6px; background: #2A2A2A; border-radius: 3px; }
-  .bar-fill { height: 100%; background: #C9A84C; border-radius: 3px; transition: width 0.5s; }
-  .bar-val { width: 60px; color: #F0EDE8; font-size: 11px; }
+  .bar-label { width: 110px; color: #6B7A8D; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 4px; background: #F0F2F5; border-radius: 2px; }
+  .bar-fill { height: 100%; background: #38B3DE; border-radius: 2px; transition: width 0.5s; }
+  .bar-val { width: 60px; color: #2B58A1; font-size: 11px; font-weight: 500; }
   .qr-container { text-align: center; padding: 16px; }
   .qr-container canvas { border-radius: 8px; border: 4px solid #fff; }
-  .client-detail { display: flex; flex-direction: column; gap: 16px; }
-  .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2A2A2A; font-size: 13px; }
-  .detail-label { color: #888; }
-  .detail-value { color: #F0EDE8; font-weight: 500; }
+  .client-detail { display: flex; flex-direction: column; gap: 4px; }
+  .detail-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 0.5px solid #F0F2F5; font-size: 13px; }
+  .detail-label { color: #8A95A5; }
+  .detail-value { color: #1A1A1A; font-weight: 500; }
   .month-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-  .month-cell { background: #1E1E1E; border-radius: 6px; padding: 10px 8px; text-align: center; }
-  .month-cell .m-name { font-size: 10px; color: #666; margin-bottom: 4px; }
-  .month-cell .m-val { font-size: 13px; font-weight: 600; color: #C9A84C; }
-  .empty-state { text-align: center; padding: 40px; color: #666; font-size: 14px; }
+  .month-cell { background: #F8F9FB; border: 0.5px solid #E0E4EA; border-radius: 6px; padding: 10px 6px; text-align: center; }
+  .month-cell .m-name { font-size: 10px; color: #8A95A5; margin-bottom: 4px; }
+  .month-cell .m-val { font-size: 13px; font-weight: 600; color: #38B3DE; }
+  .empty-state { text-align: center; padding: 40px; color: #8A95A5; font-size: 14px; }
+  .code-tag { font-size: 10px; color: #8A95A5; font-family: monospace; background: #F4F5F7; padding: 1px 5px; border-radius: 3px; }
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .main { margin-left: 0; }
@@ -270,24 +279,42 @@ export default function App() {
 // ============================================================
 function Sidebar({ t, lang, setLang, page, setPage }) {
   const navItems = [
-    { key: "dashboard", label: t.dashboard, icon: "📊" },
-    { key: "clients", label: t.clients, icon: "👤" },
-    { key: "orders", label: t.orders, icon: "🛒" },
-    { key: "products", label: t.products, icon: "📦" },
-    { key: "warranties", label: t.warranties, icon: "🛡" },
-    { key: "staff", label: t.staff, icon: "👥" },
+    { key: "dashboard", label: t.dashboard },
+    { key: "clients", label: t.clients },
+    { key: "orders", label: t.orders },
+    { key: "products", label: t.products },
+    { key: "warranties", label: t.warranties },
+    { key: "staff", label: t.staff },
   ];
+  const icons = {
+    dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+    clients: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
+    orders: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+    products: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
+    warranties: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+    staff: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  };
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
-        <h1>☕ COFFEE VERVE</h1>
-        <p>CRM System</p>
+        <div className="cv-badge">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="20" fill="#2B58A1"/>
+            <text x="20" y="17" textAnchor="middle" fontFamily="Georgia,serif" fontSize="12" fontWeight="700" fill="#fff" letterSpacing="1">CV</text>
+            <path d="M11 24 Q15 21 20 23 Q25 25 29 21" stroke="#38B3DE" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+            <circle cx="20" cy="27" r="1.5" fill="#D2B48C" opacity="0.8"/>
+            <circle cx="16" cy="26" r="1" fill="#D2B48C" opacity="0.5"/>
+            <circle cx="24" cy="26" r="1" fill="#D2B48C" opacity="0.5"/>
+          </svg>
+        </div>
+        <h1>Coffee Verve</h1>
+        <p>CRM</p>
       </div>
       <nav className="sidebar-nav">
         {navItems.map(item => (
           <div key={item.key} className={`nav-item ${page === item.key || (page === "client_detail" && item.key === "clients") ? "active" : ""}`}
             onClick={() => setPage(item.key)}>
-            <span>{item.icon}</span>
+            <span className="nav-icon">{icons[item.key]}</span>
             <span>{item.label}</span>
           </div>
         ))}
@@ -427,10 +454,22 @@ function Dashboard({ t, setPage }) {
       <div className="content">
         {/* Main Stats */}
         <div className="stats-grid">
-          <div className="stat-card"><div className="stat-label">{t.total_clients}</div><div className="stat-value">{stats.clients}</div><div className="stat-sub">+{stats.new_clients} {t.new_this_month}</div></div>
-          <div className="stat-card"><div className="stat-label">{t.total_orders}</div><div className="stat-value">{stats.orders}</div><div className="stat-sub">{stats.repeat} {t.repeat_buyers}</div></div>
-          <div className="stat-card"><div className="stat-label">{t.total_revenue}</div><div className="stat-value">{fmtMoney(stats.revenue)}</div><div className="stat-sub">{stats.sleeping} {t.sleeping}</div></div>
-          <div className="stat-card"><div className="stat-label">{t.avg_check}</div><div className="stat-value">{fmtMoney(stats.avg)}</div><div className="stat-sub">{stats.warranty} {t.warranty_requests}</div></div>
+          <div className="stat-card">
+            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <div><div className="stat-label">{t.total_clients}</div><div className="stat-value">{stats.clients}</div><div className="stat-sub">+{stats.new_clients} {t.new_this_month}</div></div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+            <div><div className="stat-label">{t.total_orders}</div><div className="stat-value">{stats.orders}</div><div className="stat-sub">{stats.repeat} {t.repeat_buyers}</div></div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+            <div><div className="stat-label">{t.total_revenue}</div><div className="stat-value">{fmtMoney(stats.revenue)}</div><div className="stat-sub">{stats.sleeping} {t.sleeping}</div></div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+            <div><div className="stat-label">{t.avg_check}</div><div className="stat-value">{fmtMoney(stats.avg)}</div><div className="stat-sub">{stats.warranty} {t.warranty_requests}</div></div>
+          </div>
         </div>
 
         {/* Monthly Revenue */}
@@ -960,6 +999,7 @@ function Products({ t }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const emptyProduct = { code: "", name: "", country: "", flavor_notes: "", purpose: "Эспрессо, молочные напитки", price_250: "", price_500: "", price_1000: "", status: "active" };
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -971,7 +1011,7 @@ function Products({ t }) {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   async function saveProduct() {
-    if (!editing) return;
+    if (!editing || !editing.name) return;
     const { id, ...data } = editing;
     if (id) await supabase.from("products").update(data).eq("id", id);
     else await supabase.from("products").insert([data]);
@@ -979,12 +1019,20 @@ function Products({ t }) {
     fetchProducts();
   }
 
+  async function deleteProduct(id) {
+    if (!window.confirm("Удалить товар?")) return;
+    await supabase.from("products").delete().eq("id", id);
+    fetchProducts();
+  }
+
   const statusLabels = { active: "✅ Есть", inactive: "❌ Нет", on_order: "⏳ Под заказ" };
+  const isNew = editing && !editing.id;
 
   return (
     <div>
       <div className="topbar">
         <span className="topbar-title">{t.products} ({products.length})</span>
+        <button className="btn btn-primary" onClick={() => setEditing({ ...emptyProduct })}>+ {t.add}</button>
       </div>
       <div className="content">
         {loading ? <div className="empty-state">{t.loading}</div> : (
@@ -1001,7 +1049,10 @@ function Products({ t }) {
                     <td style={{ color: "#C9A84C" }}>{p.price_500 ? `${p.price_500} zł` : "—"}</td>
                     <td style={{ color: "#C9A84C" }}>{p.price_1000 ? `${p.price_1000} zł` : "—"}</td>
                     <td><span className="badge" style={{ background: "#2A2A2A" }}>{statusLabels[p.status]}</span></td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={() => setEditing({ ...p })}>{t.edit}</button></td>
+                    <td style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setEditing({ ...p })}>{t.edit}</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => deleteProduct(p.id)}>{t.delete}</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1013,7 +1064,20 @@ function Products({ t }) {
       {editing && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditing(null)}>
           <div className="modal">
-            <div className="modal-title">{editing.name}</div>
+            <div className="modal-title">{isNew ? `+ ${t.add} ${t.products}` : editing.name}</div>
+            {isNew && (
+              <>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Код товара *</label><input className="input" placeholder="CV-013" value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" placeholder="Kenya AA" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">{t.country}</label><input className="input" placeholder="Кения" value={editing.country} onChange={e => setEditing({ ...editing, country: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">{t.purpose}</label><input className="input" value={editing.purpose} onChange={e => setEditing({ ...editing, purpose: e.target.value })} /></div>
+                </div>
+                <div className="form-group"><label className="form-label">{t.flavor_notes}</label><input className="input" placeholder="Смородина • Лимон • Чай" value={editing.flavor_notes} onChange={e => setEditing({ ...editing, flavor_notes: e.target.value })} /></div>
+              </>
+            )}
             <div className="form-row">
               <div className="form-group"><label className="form-label">{t.price_250}</label><input type="number" className="input" value={editing.price_250 || ""} onChange={e => setEditing({ ...editing, price_250: e.target.value })} /></div>
               <div className="form-group"><label className="form-label">{t.price_500}</label><input type="number" className="input" value={editing.price_500 || ""} onChange={e => setEditing({ ...editing, price_500: e.target.value })} /></div>

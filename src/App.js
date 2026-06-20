@@ -638,7 +638,7 @@ function Clients({ t, onSelect }) {
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t.new_client}</button>
       </div>
       <div className="content">
-        <input className="search-bar" placeholder={t.search} value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="search-bar" placeholder="Поиск по имени, Telegram, телефону..." value={search} onChange={e => setSearch(e.target.value)} />
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
@@ -802,13 +802,14 @@ function ClientDetail({ t, client, onBack, lang }) {
               <div className="empty-state">{t.no_data}</div>
             ) : (
               <table className="table">
-                <thead><tr><th>#</th><th>{t.product}</th><th>{t.weight}</th><th>{t.total}</th><th>{t.status}</th><th>QR</th></tr></thead>
+                <thead><tr><th>#</th><th>{t.product}</th><th>{t.weight}</th><th>{t.date}</th><th>{t.total}</th><th>{t.status}</th><th>QR</th></tr></thead>
                 <tbody>
                   {orders.map((o, i) => (
                     <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
                       <td style={{ color: "#6B7280", fontSize: 12 }}>{orders.length - i}</td>
                       <td style={{ fontWeight: 500, color: "#1F2937" }}>{o.products?.name || "—"}</td>
                       <td style={{ color: "#4B5563" }}>{o.weight}г</td>
+                      <td style={{ color: "#6B7280", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                       <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                       <td><span className="badge" style={{ background: STATUS_COLORS[o.status] }}>{t[STATUS_KEYS[o.status]]}</span></td>
                       <td><button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); setSelectedOrder(o); }}>QR</button></td>

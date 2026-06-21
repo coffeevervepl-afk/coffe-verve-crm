@@ -333,11 +333,12 @@ function Dashboard({ t, setPage }) {
   const [monthlyRevenue, setMonthlyRevenue] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [ordersByStatus, setOrdersByStatus] = useState([]);
+  const [avgCycle, setAvgCycle] = useState(0);
+  const [popularWeight, setPopularWeight] = useState({});
+  const [showQuickOrder, setShowQuickOrder] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
   async function fetchAll() {
     setLoading(true);
@@ -352,7 +353,6 @@ function Dashboard({ t, setPage }) {
     ]);
 
     const cl = clients || [], ord = orders || [], war = warranties || [];
-    const completedOrders = ord.filter(o => o.status === "completed" || o.total);
     const revenue = ord.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const newClients = cl.filter(c => new Date(c.created_at) >= new Date(monthStart)).length;
 
@@ -381,8 +381,7 @@ function Dashboard({ t, setPage }) {
       prodMap[n].count++;
       prodMap[n].revenue += Number(o.total) || 0;
     });
-    const tp = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
-    setTopProducts(tp);
+    setTopProducts(Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5));
 
     // Top clients
     const clMap = {};
@@ -426,6 +425,28 @@ function Dashboard({ t, setPage }) {
     // Recent orders
     setRecentOrders(ord.slice(-5).reverse());
 
+    // Средний цикл покупки (дней между заказами одного клиента)
+    const clientDates = {};
+    ord.forEach(o => {
+      if (!o.client_id) return;
+      if (!clientDates[o.client_id]) clientDates[o.client_id] = [];
+      clientDates[o.client_id].push(new Date(o.created_at));
+    });
+    const cycles = [];
+    Object.values(clientDates).forEach(dates => {
+      if (dates.length < 2) return;
+      dates.sort((a, b) => a - b);
+      for (let i = 1; i < dates.length; i++) {
+        cycles.push((dates[i] - dates[i-1]) / 86400000);
+      }
+    });
+    setAvgCycle(cycles.length ? Math.round(cycles.reduce((s, c) => s + c, 0) / cycles.length) : 0);
+
+    // Популярный вес
+    const weightMap = { 250: 0, 500: 0, 1000: 0 };
+    ord.forEach(o => { if (o.weight && weightMap[o.weight] !== undefined) weightMap[o.weight]++; });
+    setPopularWeight(weightMap);
+
     setStats({ clients: cl.length, orders: ord.length, revenue, avg: ord.length ? revenue / ord.length : 0, new_clients: newClients, repeat: repeatCount, sleeping, warranty: war.length });
     setLoading(false);
   }
@@ -435,10 +456,14 @@ function Dashboard({ t, setPage }) {
   const maxRev = Math.max(...topProducts.map(p => p[1].revenue), 1);
   const maxCl = Math.max(...topClients.map(c => c[1].total), 1);
   const maxSrc = Math.max(...bySource.map(s => s[1]), 1);
+  const maxWeight = Math.max(...Object.values(popularWeight), 1);
 
   return (
     <div>
-      <div className="topbar"><span className="topbar-title">{t.dashboard}</span></div>
+      <div className="topbar">
+        <span className="topbar-title">{t.dashboard}</span>
+        <button className="btn btn-primary" onClick={() => setShowQuickOrder(true)}>+ {t.new_order}</button>
+      </div>
       <div className="content">
         {/* Main Stats */}
         <div className="stats-grid">
@@ -591,6 +616,168 @@ function Dashboard({ t, setPage }) {
               </table>
             )}
           </div>
+        </div>
+
+        {/* Аналитика — цикл покупки и популярный вес */}
+        <div className="grid-2">
+          <div className="card">
+            <div className="card-title">📊 Средний цикл покупки</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+              <div style={{ textAlign: "center", flex: 1, background: "#F0FDF4", borderRadius: 8, padding: "14px 10px" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: "#16A34A" }}>{avgCycle || "—"}</div>
+                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>дней между заказами</div>
+              </div>
+              <div style={{ flex: 2, fontSize: 13, color: "#4B5563", lineHeight: 1.6 }}>
+                {avgCycle > 0 ? (
+                  <>
+                    <div>Клиенты возвращают в среднем через <strong style={{ color: "#16A34A" }}>{avgCycle} дн.</strong></div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#9CA3AF" }}>
+                      {avgCycle <= 14 ? "🔥 Высокая лояльность" : avgCycle <= 30 ? "✅ Хорошая частота" : "⚠️ Стоит напомнить о себе"}
+                    </div>
+                  </>
+                ) : <div style={{ color: "#9CA3AF" }}>Нужно минимум 2 заказа от одного клиента</div>}
+              </div>
+            </div>
+            <div className="card-title" style={{ marginTop: 8 }}>🏆 Топ клиентов</div>
+            {topClients.length === 0 ? <div className="empty-state" style={{ padding: 16 }}>{t.no_data}</div> : (
+              <div className="bar-chart">
+                {topClients.map(([name, d]) => (
+                  <div key={name} className="bar-row">
+                    <div className="bar-label">{name}</div>
+                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(d.total / maxCl) * 100}%` }} /></div>
+                    <div className="bar-val">{fmtMoney(d.total)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-title">⚖️ Популярный вес упаковки</div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              {[250, 500, 1000].map(w => (
+                <div key={w} style={{ flex: 1, textAlign: "center", background: popularWeight[w] === Math.max(...Object.values(popularWeight)) && popularWeight[w] > 0 ? "#F0FDF4" : "#F9FAFB", border: `1px solid ${popularWeight[w] === Math.max(...Object.values(popularWeight)) && popularWeight[w] > 0 ? "#86EFAC" : "#E5E7EB"}`, borderRadius: 8, padding: "12px 8px" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#1F2937" }}>{popularWeight[w] || 0}</div>
+                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>{w}г</div>
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ height: 4, background: "#E5E7EB", borderRadius: 2 }}>
+                      <div style={{ height: "100%", background: "#22C55E", borderRadius: 2, width: `${maxWeight > 0 ? (popularWeight[w] / maxWeight) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="card-title" style={{ marginTop: 8 }}>🏙️ {t.by_city}</div>
+            {byCity.length === 0 ? <div className="empty-state" style={{ padding: 12 }}>{t.no_data}</div> : (
+              <div className="bar-chart">
+                {byCity.map(([city, cnt]) => (
+                  <div key={city} className="bar-row">
+                    <div className="bar-label">{city}</div>
+                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(cnt / byCity[0][1]) * 100}%` }} /></div>
+                    <div className="bar-val">{cnt}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Быстрый заказ */}
+      {showQuickOrder && <QuickOrderModal t={t} onClose={() => setShowQuickOrder(false)} onDone={() => { setShowQuickOrder(false); fetchAll(); }} />}
+    </div>
+  );
+}
+
+// ============================================================
+// QUICK ORDER MODAL
+// ============================================================
+function QuickOrderModal({ t, onClose, onDone }) {
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [form, setForm] = useState({ client_id: "", product_id: "", weight: 250, notes: "" });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from("clients").select("id, name, client_code").order("name"),
+      supabase.from("products").select("*").eq("status", "active").order("name"),
+    ]).then(([{ data: cl }, { data: pr }]) => {
+      setClients(cl || []);
+      setProducts(pr || []);
+      setLoading(false);
+    });
+  }, []);
+
+  const filteredClients = clients.filter(c =>
+    c.name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.client_code?.toLowerCase().includes(clientSearch.toLowerCase())
+  );
+
+  const selectedProduct = products.find(p => p.id === form.product_id);
+  const price = selectedProduct?.[`price_${form.weight}`] || 0;
+
+  async function save() {
+    if (!form.client_id || !form.product_id) return;
+    await supabase.from("orders").insert([{
+      client_id: form.client_id,
+      product_id: form.product_id,
+      weight: form.weight,
+      price,
+      total: price,
+      notes: form.notes,
+      status: "new"
+    }]);
+    onDone();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">+ {t.new_order}</div>
+        {loading ? <div className="empty-state">{t.loading}</div> : (
+          <>
+            <div className="form-group">
+              <label className="form-label">{t.client} *</label>
+              <input className="input" style={{ marginBottom: 6 }} placeholder="Поиск клиента..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
+              <select className="input" value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}>
+                <option value="">— выберите клиента —</option>
+                {filteredClients.map(c => <option key={c.id} value={c.id}>{c.name} ({c.client_code})</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.product} *</label>
+              <select className="input" value={form.product_id} onChange={e => setForm({ ...form, product_id: e.target.value })}>
+                <option value="">— выберите товар —</option>
+                {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.country})</option>)}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.weight}</label>
+                <select className="input" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })}>
+                  <option value={250}>250г</option>
+                  <option value={500}>500г</option>
+                  <option value={1000}>1000г</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.price}</label>
+                <div className="input" style={{ background: "#F0FDF4", color: "#16A34A", fontWeight: 600, display: "flex", alignItems: "center" }}>
+                  {price ? fmtMoney(price) : "—"}
+                </div>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.notes}</label>
+              <textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </>
+        )}
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button className="btn btn-primary" onClick={save} disabled={!form.client_id || !form.product_id}>{t.save}</button>
         </div>
       </div>
     </div>
@@ -989,6 +1176,11 @@ function Orders({ t, lang }) {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
+  async function changeStatus(id, status) {
+    await supabase.from("orders").update({ status }).eq("id", id);
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+  }
+
   const filtered = orders.filter(o => {
     const matchStatus = filter === "all" || o.status === filter;
     const matchSearch = !search || o.clients?.name?.toLowerCase().includes(search.toLowerCase()) || o.products?.name?.toLowerCase().includes(search.toLowerCase());
@@ -1015,15 +1207,27 @@ function Orders({ t, lang }) {
               <thead><tr><th>#</th><th>{t.client}</th><th>{t.product}</th><th>{t.weight}</th><th>{t.total}</th><th>{t.status}</th><th>{t.date}</th><th>QR</th></tr></thead>
               <tbody>
                 {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">{t.no_data}</td></tr> : filtered.map((o, i) => (
-                  <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
+                  <tr key={o.id}>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{filtered.length - i}</td>
-                    <td><div style={{ fontWeight: 500 }}>{o.clients?.name || "—"}</div><div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div></td>
+                    <td style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
+                      <div style={{ fontWeight: 500 }}>{o.clients?.name || "—"}</div>
+                      <div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div>
+                    </td>
                     <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
                     <td style={{ color: "#6B7280" }}>{o.weight}г</td>
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
-                    <td><span className="badge" style={{ background: STATUS_COLORS[o.status] + "22", color: STATUS_COLORS[o.status] }}>{t[STATUS_KEYS[o.status]]}</span></td>
+                    <td>
+                      <select
+                        className="input"
+                        style={{ padding: "3px 6px", fontSize: 11, width: "auto", background: STATUS_COLORS[o.status] + "15", color: STATUS_COLORS[o.status], fontWeight: 600, border: `1px solid ${STATUS_COLORS[o.status]}40`, borderRadius: 20 }}
+                        value={o.status}
+                        onChange={e => { e.stopPropagation(); changeStatus(o.id, e.target.value); }}
+                      >
+                        {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{t[STATUS_KEYS[s]]}</option>)}
+                      </select>
+                    </td>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); setSelectedOrder(o); }}>QR</button></td>
+                    <td><button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -1041,6 +1245,7 @@ function Orders({ t, lang }) {
 // ============================================================
 function Products({ t }) {
   const [products, setProducts] = useState([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const emptyProduct = { code: "", name: "", country: "", flavor_notes: "", purpose: "Эспрессо, молочные напитки", price_250: "", price_500: "", price_1000: "", status: "active" };
@@ -1051,6 +1256,15 @@ function Products({ t }) {
     setProducts(data || []);
     setLoading(false);
   }, []);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const filtered = products.filter(p =>
+    p.name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.country?.toLowerCase().includes(search.toLowerCase()) ||
+    p.flavor_notes?.toLowerCase().includes(search.toLowerCase()) ||
+    p.code?.toLowerCase().includes(search.toLowerCase())
+  );
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -1079,12 +1293,13 @@ function Products({ t }) {
         <button className="btn btn-primary" onClick={() => setEditing({ ...emptyProduct })}>+ {t.add}</button>
       </div>
       <div className="content">
+        <input className="search-bar" placeholder="Поиск по названию, стране, вкусу..." value={search} onChange={e => setSearch(e.target.value)} />
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead><tr><th>{t.name}</th><th>{t.country}</th><th>{t.flavor_notes}</th><th>{t.price_250}</th><th>{t.price_500}</th><th>{t.price_1000}</th><th>{t.available}</th><th></th></tr></thead>
               <tbody>
-                {products.map(p => (
+                {filtered.map(p => (
                   <tr key={p.id}>
                     <td><div style={{ fontWeight: 500 }}>{p.name}</div><div style={{ fontSize: 11, color: "#4B5563" }}>{p.code}</div></td>
                     <td style={{ color: "#6B7280", fontSize: 12 }}>{p.country}</td>

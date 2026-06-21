@@ -125,8 +125,15 @@ const T = {
 // HELPERS
 // ============================================================
 const STATUS_COLORS = {
-  new: "#2B58A1", processing: "#FF9900", shipped: "#38B3DE",
-  completed: "#38B3DE", cancelled: "#F44336"
+  new: "#2B58A1", processing: "#F59E0B", shipped: "#8B5CF6",
+  completed: "#22C55E", cancelled: "#F44336"
+};
+const STATUS_PILL = {
+  new:        { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+  processing: { bg: "#FFFBEB", color: "#B45309", border: "#FDE68A" },
+  shipped:    { bg: "#F5F3FF", color: "#6D28D9", border: "#DDD6FE" },
+  completed:  { bg: "#F0FDF4", color: "#15803D", border: "#BBF7D0" },
+  cancelled:  { bg: "#FFF1F2", color: "#BE123C", border: "#FECDD3" },
 };
 const STATUS_KEYS = { new: "status_new", processing: "status_processing", shipped: "status_shipped", completed: "status_completed", cancelled: "status_cancelled" };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
@@ -189,6 +196,27 @@ const styles = `
   .badge-shipped { background: #22C55E; }
   .badge-completed { background: #22C55E; }
   .badge-cancelled { background: #F44336; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
+  .status-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .status-select-pill { padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 20px; border: 1px solid; cursor: pointer; font-family: 'Inter', sans-serif; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+  .client-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; flex-shrink: 0; }
+  .lang-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
+  .lang-ru { background: #EFF6FF; color: #1D4ED8; }
+  .lang-ua { background: #FEF9C3; color: #854D0E; }
+  .lang-pl { background: #FEF2F2; color: #B91C1C; }
+  .lang-other { background: #F3F4F6; color: #4B5563; }
+  .action-icon-btn { background: none; border: none; cursor: pointer; color: #9CA3AF; padding: 5px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; font-size: 13px; }
+  .action-icon-btn:hover { background: #F3F4F6; color: #374151; }
+  .action-icon-btn.danger:hover { background: #FEF2F2; color: #DC2626; }
+  .stat-card-big { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; padding: 18px 20px; }
+  .stat-card-big.green { border-left: 3px solid #22C55E; }
+  .stat-card-big .big-label { font-size: 11px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; margin-bottom: 4px; }
+  .stat-card-big .big-value { font-size: 28px; font-weight: 700; color: #1F2937; line-height: 1.1; }
+  .stat-card-big .big-sub { font-size: 12px; color: #22C55E; margin-top: 4px; font-weight: 500; }
+  .bar-month { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .bar-month-fill { width: 100%; border-radius: 3px 3px 0 0; background: #E5E7EB; min-height: 4px; transition: height 0.4s; }
+  .bar-month-fill.active { background: #22C55E; }
+  .bar-month-label { font-size: 9px; color: #9CA3AF; font-weight: 500; }
   .search-bar { width: 100%; padding: 9px 14px; background: #fff; border: 1px solid #E5E7EB; border-radius: 7px; color: #1F2937; font-size: 13px; margin-bottom: 14px; font-family: 'Inter', sans-serif; }
   .search-bar:focus { outline: none; border-color: #22C55E; }
   .input { width: 100%; padding: 9px 12px; background: #fff; border: 1px solid #E5E7EB; border-radius: 6px; color: #1F2937; font-size: 13px; font-family: 'Inter', sans-serif; }
@@ -466,18 +494,18 @@ function Dashboard({ t, setPage }) {
       </div>
       <div className="content">
         {/* Main Stats */}
-        <div className="stats-grid">
+        <div className="stats-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
+          <div className="stat-card-big green">
+            <div className="big-label">
+              <svg style={{ display: "inline", verticalAlign: "-2px", marginRight: 5 }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              {t.total_revenue}
+            </div>
+            <div className="big-value">{fmtMoney(stats.revenue)}</div>
+            <div className="big-sub">+{stats.orders} {t.total_orders.toLowerCase()} · ср. чек {fmtMoney(stats.avg)}</div>
+          </div>
           <div className="stat-card">
-            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <div className="stat-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
             <div><div className="stat-label">{t.total_clients}</div><div className="stat-value">{stats.clients}</div><div className="stat-sub">+{stats.new_clients} {t.new_this_month}</div></div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
-            <div><div className="stat-label">{t.total_orders}</div><div className="stat-value">{stats.orders}</div><div className="stat-sub">{stats.repeat} {t.repeat_buyers}</div></div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-            <div><div className="stat-label">{t.total_revenue}</div><div className="stat-value">{fmtMoney(stats.revenue)}</div><div className="stat-sub">{stats.sleeping} {t.sleeping}</div></div>
           </div>
           <div className="stat-card">
             <div className="stat-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
@@ -485,17 +513,19 @@ function Dashboard({ t, setPage }) {
           </div>
         </div>
 
-        {/* Monthly Revenue */}
+        {/* Monthly Revenue — bar chart */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">{t.revenue_by_month}</div>
-          <div className="month-grid">
-            {monthlyRevenue.map((m, i) => (
-              <div key={i} className="month-cell">
-                <div className="m-name">{t.months[i]}</div>
-                <div className="m-val">{m.rev > 0 ? `${m.rev.toFixed(0)} zł` : "—"}</div>
-                <div style={{ fontSize: 10, color: "#555" }}>{m.cnt > 0 ? `${m.cnt} зак.` : ""}</div>
-              </div>
-            ))}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
+            {(() => {
+              const maxRev2 = Math.max(...monthlyRevenue.map(m => m.rev), 1);
+              return monthlyRevenue.map((m, i) => (
+                <div key={i} className="bar-month">
+                  <div className={`bar-month-fill${m.rev > 0 ? " active" : ""}`} style={{ height: `${Math.max((m.rev / maxRev2) * 64, m.rev > 0 ? 8 : 4)}px` }} title={m.rev > 0 ? `${m.rev.toFixed(0)} zł · ${m.cnt} зак.` : ""} />
+                  <div className="bar-month-label">{t.months[i]}</div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
 
@@ -960,13 +990,24 @@ function ClientDetail({ t, client, onBack, lang }) {
           {/* Client Info */}
           <div className="card">
             <div className="card-title">{t.client_card}</div>
+            {/* Аватар + имя */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #F3F4F6" }}>
+              <div className="client-avatar" style={{ background: "#DBEAFE", color: "#1D4ED8" }}>
+                {(currentClient.name || "?").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#1F2937" }}>{currentClient.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <span className={`lang-pill lang-${(currentClient.language || "other").toLowerCase()}`}>{(currentClient.language || "—").toUpperCase()}</span>
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{currentClient.client_code}</span>
+                </div>
+              </div>
+            </div>
             <div className="client-detail">
               {[
-                [t.name, currentClient.name],
                 ["Telegram", currentClient.username ? `@${currentClient.username}` : currentClient.telegram_id || "—"],
                 [t.phone, currentClient.phone || "—"],
                 [t.email, currentClient.email || "—"],
-                [t.language, currentClient.language || "—"],
                 [t.source, currentClient.source || "—"],
                 [t.city, currentClient.city || "—"],
                 [t.date, fmtDate(currentClient.created_at)],
@@ -986,7 +1027,11 @@ function ClientDetail({ t, client, onBack, lang }) {
           <div className="card">
             <div className="card-title">{t.order_history} ({orders.length})</div>
             {loading ? <div className="empty-state">{t.loading}</div> : orders.length === 0 ? (
-              <div className="empty-state">{t.no_data}</div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 16px", gap: 10 }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span style={{ fontSize: 13, color: "#9CA3AF" }}>Заказов пока нет</span>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowOrderModal(true)}>+ {t.new_order}</button>
+              </div>
             ) : (
               <table className="table">
                 <thead><tr><th>#</th><th>{t.product}</th><th>{t.weight}</th><th>{t.date}</th><th>{t.total}</th><th>{t.status}</th><th>QR</th></tr></thead>
@@ -1218,8 +1263,8 @@ function Orders({ t, lang }) {
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                     <td>
                       <select
-                        className="input"
-                        style={{ padding: "3px 6px", fontSize: 11, width: "auto", background: STATUS_COLORS[o.status] + "15", color: STATUS_COLORS[o.status], fontWeight: 600, border: `1px solid ${STATUS_COLORS[o.status]}40`, borderRadius: 20 }}
+                        className="status-select-pill"
+                        style={{ background: STATUS_PILL[o.status]?.bg, color: STATUS_PILL[o.status]?.color, borderColor: STATUS_PILL[o.status]?.border }}
                         value={o.status}
                         onChange={e => { e.stopPropagation(); changeStatus(o.id, e.target.value); }}
                       >
@@ -1307,10 +1352,16 @@ function Products({ t }) {
                     <td style={{ color: "#16A34A" }}>{p.price_250 ? `${p.price_250} zł` : "—"}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_500 ? `${p.price_500} zł` : "—"}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_1000 ? `${p.price_1000} zł` : "—"}</td>
-                    <td><span className="badge" style={{ background: "#F3F4F6" }}>{statusLabels[p.status]}</span></td>
-                    <td style={{ display: "flex", gap: 6 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setEditing({ ...p })}>{t.edit}</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => deleteProduct(p.id)}>{t.delete}</button>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: p.status === "active" ? "#22C55E" : p.status === "on_order" ? "#F59E0B" : "#F44336" }} title={p.status === "active" ? "В наличии" : p.status === "on_order" ? "Под заказ" : "Нет"} />
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button className="action-icon-btn" title={t.edit} onClick={() => setEditing({ ...p })}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button className="action-icon-btn danger" title={t.delete} onClick={() => deleteProduct(p.id)}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                      </button>
                     </td>
                   </tr>
                 ))}

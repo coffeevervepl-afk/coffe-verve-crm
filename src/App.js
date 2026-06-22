@@ -548,6 +548,7 @@ function CRMApp() {
   const [newWarranties, setNewWarranties] = useState(0);
   const t = T[lang];
 
+  // Загружаем счётчик и подписываемся на Realtime
   useEffect(() => {
     async function fetchWarrantyCount() {
       const { count } = await supabase
@@ -557,14 +558,33 @@ function CRMApp() {
       setNewWarranties(count || 0);
     }
     fetchWarrantyCount();
-    // Refresh every 30 seconds
+
+    // Realtime подписка — обновление мгновенное при любом изменении warranties
+    const channel = supabase
+      .channel("warranties-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "warranties" }, () => {
+        fetchWarrantyCount();
+      })
+      .subscribe();
+
+    // Fallback polling каждые 30 сек (на случай если Realtime недоступен)
     const interval = setInterval(fetchWarrantyCount, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, []);
 
-  // Clear badge when warranties page is opened
+  // При открытии раздела Гарантии — перезапрашиваем реальный счётчик из базы
   useEffect(() => {
-    if (page === "warranties") setNewWarranties(0);
+    if (page === "warranties") {
+      supabase
+        .from("warranties")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "new")
+        .then(({ count }) => setNewWarranties(count || 0));
+    }
   }, [page]);
 
   return (

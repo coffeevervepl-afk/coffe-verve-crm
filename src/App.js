@@ -407,7 +407,7 @@ function PassportPage({ token }) {
   `;
 
   const urlLang = new URLSearchParams(window.location.search).get("lang")?.toLowerCase();
-  const rawLang = urlLang && PT[urlLang] ? urlLang : (order?.clients?.lang?.toLowerCase() || "ru");
+  const rawLang = urlLang && PT[urlLang] ? urlLang : (order?.clients?.language?.toLowerCase() || "ru");
   const lang = activeLang || (PT[rawLang] ? rawLang : "ru");
   const t = PT[lang];
 
@@ -1440,7 +1440,7 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
 
   useEffect(() => {
     if (order.qr_token) {
-      const clientLang = order.clients?.lang?.toLowerCase() || "ru";
+      const clientLang = order.clients?.language?.toLowerCase() || "ru";
       generateQR(order.qr_token, clientLang).then(setQrUrl);
     }
   }, [order]);
@@ -1512,7 +1512,7 @@ function Orders({ t, lang }) {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("orders").select("*, clients(name, client_code, lang), products(name, flavor_notes, flavor_notes_pl, flavor_notes_ua)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("orders").select("*, clients(name, client_code, language), products(name, flavor_notes, flavor_notes_pl, flavor_notes_ua)").order("created_at", { ascending: false });
     setOrders(data || []);
     setLoading(false);
   }, []);

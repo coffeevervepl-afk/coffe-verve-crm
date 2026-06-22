@@ -157,6 +157,8 @@ const styles = `
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.65); transition: all 0.15s; border-left: 3px solid transparent; }
   .nav-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
   .nav-item.active { color: #fff; background: rgba(34,197,94,0.15); border-left-color: #22C55E; }
+  .nav-badge { background: #EF4444; color: #fff; border-radius: 10px; font-size: 10px; font-weight: 700; padding: 1px 6px; margin-left: auto; min-width: 18px; text-align: center; animation: pulse-badge 2s infinite; }
+  @keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
   .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
   .sidebar-bottom { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
   .lang-switcher { display: flex; gap: 5px; }
@@ -540,13 +542,33 @@ function CRMApp() {
   const [lang, setLang] = useState("ru");
   const [page, setPage] = useState("dashboard");
   const [selectedClient, setSelectedClient] = useState(null);
+  const [newWarranties, setNewWarranties] = useState(0);
   const t = T[lang];
+
+  useEffect(() => {
+    async function fetchWarrantyCount() {
+      const { count } = await supabase
+        .from("warranties")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "new");
+      setNewWarranties(count || 0);
+    }
+    fetchWarrantyCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchWarrantyCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Clear badge when warranties page is opened
+  useEffect(() => {
+    if (page === "warranties") setNewWarranties(0);
+  }, [page]);
 
   return (
     <>
       <style>{styles}</style>
       <div className="crm-root">
-        <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} />
+        <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} />
         <div className="main">
           {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
           {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
@@ -572,7 +594,7 @@ export default function App() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage }) {
+function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
   const navItems = [
     { key: "dashboard", label: t.dashboard },
     { key: "clients", label: t.clients },
@@ -601,6 +623,9 @@ function Sidebar({ t, lang, setLang, page, setPage }) {
             onClick={() => setPage(item.key)}>
             <span className="nav-icon">{icons[item.key]}</span>
             <span>{item.label}</span>
+            {item.key === "warranties" && newWarranties > 0 && (
+              <span className="nav-badge">{newWarranties}</span>
+            )}
           </div>
         ))}
       </nav>

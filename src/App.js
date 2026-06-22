@@ -283,6 +283,12 @@ function PassportPage({ token }) {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeLang, setActiveLang] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formReason, setFormReason] = useState("");
+  const [formComment, setFormComment] = useState("");
+  const [formSent, setFormSent] = useState(false);
+  const [formSending, setFormSending] = useState(false);
 
   useEffect(() => {
     async function fetchOrder() {
@@ -311,21 +317,48 @@ function PassportPage({ token }) {
   const PT = {
     ru: {
       title: "Паспорт заказа", loading: "Загрузка...", not_found: "Заказ не найден",
-      client: "Клиент", weight: "Вес", roast_date: "Дата обжарки",
+      order_num: "Номер заказа", weight: "Вес", roast_date: "Дата обжарки",
       order_date: "Дата заказа", status: "Статус", flavor: "Вкусовые ноты",
       unit_g: "г", locale: "ru-RU",
+      problem_btn: "⚠️ Проблема с заказом",
+      form_title: "Заявка на возврат",
+      form_reason_label: "Причина обращения",
+      reasons: ["Дефект обжарки", "Не тот товар", "Повреждена упаковка", "Другое"],
+      form_comment: "Комментарий (необязательно)",
+      form_send: "Отправить заявку",
+      form_sending: "Отправляем...",
+      form_cancel: "Отмена",
+      form_success: "✅ Заявка принята! Менеджер свяжется с вами.",
     },
     pl: {
       title: "Paszport zamówienia", loading: "Ładowanie...", not_found: "Zamówienie nie znalezione",
-      client: "Klient", weight: "Waga", roast_date: "Data palenia",
+      order_num: "Numer zamówienia", weight: "Waga", roast_date: "Data palenia",
       order_date: "Data zamówienia", status: "Status", flavor: "Nuty smakowe",
       unit_g: "g", locale: "pl-PL",
+      problem_btn: "⚠️ Problem z zamówieniem",
+      form_title: "Wniosek o zwrot",
+      form_reason_label: "Powód reklamacji",
+      reasons: ["Wada palenia", "Zły produkt", "Uszkodzone opakowanie", "Inne"],
+      form_comment: "Komentarz (opcjonalnie)",
+      form_send: "Wyślij wniosek",
+      form_sending: "Wysyłanie...",
+      form_cancel: "Anuluj",
+      form_success: "✅ Wniosek przyjęty! Menedżer skontaktuje się z Tobą.",
     },
     ua: {
       title: "Паспорт замовлення", loading: "Завантаження...", not_found: "Замовлення не знайдено",
-      client: "Клієнт", weight: "Вага", roast_date: "Дата обсмажки",
+      order_num: "Номер замовлення", weight: "Вага", roast_date: "Дата обсмажки",
       order_date: "Дата замовлення", status: "Статус", flavor: "Смакові ноти",
       unit_g: "г", locale: "uk-UA",
+      problem_btn: "⚠️ Проблема із замовленням",
+      form_title: "Заявка на повернення",
+      form_reason_label: "Причина звернення",
+      reasons: ["Дефект обсмажки", "Не той товар", "Пошкоджена упаковка", "Інше"],
+      form_comment: "Коментар (необов'язково)",
+      form_send: "Надіслати заявку",
+      form_sending: "Надсилаємо...",
+      form_cancel: "Скасувати",
+      form_success: "✅ Заявку прийнято! Менеджер зв'яжеться з вами.",
     },
   };
 
@@ -355,13 +388,39 @@ function PassportPage({ token }) {
     .lang-switch { display: flex; gap: 8px; justify-content: center; padding: 12px; background: #0F172A; }
     .lang-btn { background: #1E293B; border: 1px solid #334155; color: #94A3B8; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
     .lang-btn.active { background: #2B58A1; border-color: #2B58A1; color: #fff; }
+    .problem-section { padding: 0 24px 20px; }
+    .problem-btn { width: 100%; padding: 12px; background: #1a1a2e; border: 1px solid #F59E0B; color: #F59E0B; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .problem-btn:hover { background: #2a1f00; }
+    .warranty-form { background: #0F172A; border-radius: 12px; padding: 20px; margin-top: 12px; }
+    .warranty-form-title { font-size: 16px; font-weight: 700; color: #F1F5F9; margin-bottom: 16px; }
+    .warranty-label { font-size: 12px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+    .warranty-select { width: 100%; background: #1E293B; border: 1px solid #334155; color: #E2E8F0; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; outline: none; }
+    .warranty-textarea { width: 100%; background: #1E293B; border: 1px solid #334155; color: #E2E8F0; border-radius: 8px; padding: 10px 12px; font-size: 14px; resize: none; height: 80px; outline: none; margin-bottom: 12px; font-family: inherit; }
+    .warranty-actions { display: flex; gap: 8px; }
+    .warranty-submit { flex: 1; background: #2B58A1; color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .warranty-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .warranty-cancel { background: #1E293B; color: #94A3B8; border: 1px solid #334155; border-radius: 8px; padding: 11px 16px; font-size: 14px; cursor: pointer; }
+    .warranty-success { text-align: center; color: #22C55E; font-size: 15px; font-weight: 600; padding: 16px 0; }
   `;
 
-  // Determine language from client record, default ru
   const rawLang = order?.clients?.lang?.toLowerCase() || "ru";
-  const [activeLang, setActiveLang] = useState(null);
   const lang = activeLang || (PT[rawLang] ? rawLang : "ru");
   const t = PT[lang];
+
+  async function submitWarranty() {
+    if (!formReason) return;
+    setFormSending(true);
+    const reason = formComment ? \`\${formReason}: \${formComment}\` : formReason;
+    await supabase.from("warranties").insert({
+      order_id: order.id,
+      reason,
+      status: "new",
+      resolution: "pending",
+      activated_at: new Date().toISOString(),
+    });
+    setFormSending(false);
+    setFormSent(true);
+  }
 
   if (loading) return (
     <>
@@ -378,7 +437,7 @@ function PassportPage({ token }) {
   );
 
   const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, pl: order.status, ua: order.status, color: "#64748B" };
-  const clientName = order.clients?.name || "—";
+  const orderNum = order.clients?.id ? \`#CVC-\${String(order.id).padStart(4,"0")}\` : \`#\${order.id}\`;
   const productName = order.products?.name || "—";
   const origin = order.products?.origin || "";
   const flavor = order.products?.flavor_notes || "";
@@ -404,17 +463,15 @@ function PassportPage({ token }) {
           <div className="passport-body">
             <div className="passport-product">{productName}</div>
             {origin && <div className="passport-origin">🌍 {origin}</div>}
-
             {flavor && (
               <div className="passport-flavor">
                 <div className="passport-flavor-label">{t.flavor}</div>
                 <div className="passport-flavor-text">✨ {flavor}</div>
               </div>
             )}
-
             <div className="passport-row">
-              <span className="passport-label">{t.client}</span>
-              <span className="passport-value">{clientName}</span>
+              <span className="passport-label">{t.order_num}</span>
+              <span className="passport-value">{orderNum}</span>
             </div>
             <div className="passport-row">
               <span className="passport-label">{t.weight}</span>
@@ -434,6 +491,37 @@ function PassportPage({ token }) {
               <span className="passport-label">{t.status}</span>
               <span className="passport-status" style={{ background: statusInfo.color }}>{statusInfo[lang]}</span>
             </div>
+          </div>
+          <div className="problem-section">
+            {!showForm && (
+              <button className="problem-btn" onClick={() => setShowForm(true)}>
+                {t.problem_btn}
+              </button>
+            )}
+            {showForm && (
+              <div className="warranty-form">
+                <div className="warranty-form-title">{t.form_title}</div>
+                {formSent ? (
+                  <div className="warranty-success">{t.form_success}</div>
+                ) : (
+                  <>
+                    <label className="warranty-label">{t.form_reason_label}</label>
+                    <select className="warranty-select" value={formReason} onChange={e => setFormReason(e.target.value)}>
+                      <option value="">—</option>
+                      {t.reasons.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <label className="warranty-label">{t.form_comment}</label>
+                    <textarea className="warranty-textarea" value={formComment} onChange={e => setFormComment(e.target.value)} />
+                    <div className="warranty-actions">
+                      <button className="warranty-cancel" onClick={() => setShowForm(false)}>{t.form_cancel}</button>
+                      <button className="warranty-submit" disabled={!formReason || formSending} onClick={submitWarranty}>
+                        {formSending ? t.form_sending : t.form_send}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <div className="passport-footer">
             Coffee Verve · Warszawa · Specialty Coffee

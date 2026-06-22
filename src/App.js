@@ -437,7 +437,7 @@ function PassportPage({ token }) {
   );
 
   const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, pl: order.status, ua: order.status, color: "#64748B" };
-  const orderNum = order.clients?.id ? `#CVC-${String(order.id).padStart(4,"0")}` : `#${order.id}`;
+  const orderNum = `#CVC-${order.qr_token?.slice(0,8).toUpperCase() || order.id?.slice(0,8).toUpperCase()}`;
   const productName = order.products?.name || "—";
   const origin = order.products?.origin || "";
   const flavor = order.products?.flavor_notes || "";

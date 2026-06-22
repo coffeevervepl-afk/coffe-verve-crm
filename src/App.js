@@ -597,7 +597,7 @@ function CRMApp() {
           {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
           {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
           {page === "orders" && <Orders t={t} lang={lang} />}
-          {page === "products" && <Products t={t} />}
+          {page === "products" && <Products t={t} lang={lang} />}
           {page === "warranties" && <Warranties t={t} />}
           {page === "staff" && <Staff t={t} />}
         </div>
@@ -1529,6 +1529,7 @@ function Orders({ t, lang }) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showNewOrder, setShowNewOrder] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -1560,6 +1561,7 @@ function Orders({ t, lang }) {
               {s === "all" ? "Все" : t[STATUS_KEYS[s]]}
             </button>
           ))}
+          <button className="btn btn-primary btn-sm" onClick={() => setShowNewOrder(true)}>+ {t.new_order}</button>
         </div>
       </div>
       <div className="content">
@@ -1599,6 +1601,7 @@ function Orders({ t, lang }) {
         )}
       </div>
       {selectedOrder && <OrderQRModal t={t} lang={lang} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
+      {showNewOrder && <QuickOrderModal t={t} onClose={() => setShowNewOrder(false)} onDone={() => { setShowNewOrder(false); fetchOrders(); }} />}
     </div>
   );
 }
@@ -1606,7 +1609,7 @@ function Orders({ t, lang }) {
 // ============================================================
 // PRODUCTS
 // ============================================================
-function Products({ t }) {
+function Products({ t, lang }) {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1666,7 +1669,7 @@ function Products({ t }) {
                   <tr key={p.id}>
                     <td><div style={{ fontWeight: 500 }}>{p.name}</div><div style={{ fontSize: 11, color: "#4B5563" }}>{p.code}</div></td>
                     <td style={{ color: "#6B7280", fontSize: 12 }}>{p.country}</td>
-                    <td style={{ color: "#6B7280", fontSize: 12, maxWidth: 200 }}>{p.flavor_notes}</td>
+                    <td style={{ color: "#6B7280", fontSize: 12, maxWidth: 200 }}>{p[lang === "pl" ? "flavor_notes_pl" : lang === "ua" ? "flavor_notes_ua" : "flavor_notes"] || p.flavor_notes}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_250 ? `${p.price_250} zł` : "—"}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_500 ? `${p.price_500} zł` : "—"}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_1000 ? `${p.price_1000} zł` : "—"}</td>

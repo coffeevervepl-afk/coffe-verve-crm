@@ -291,7 +291,7 @@ function PassportPage({ token }) {
         .select("*, products(*), clients(*)")
         .eq("qr_token", token)
         .single();
-      if (error || !data) setError("Заказ не найден");
+      if (error || !data) setError(true);
       else setOrder(data);
       setLoading(false);
     }
@@ -299,12 +299,34 @@ function PassportPage({ token }) {
   }, [token]);
 
   const STATUS_LABELS = {
-    new: { ru: "Новый", pl: "Nowe", ua: "Новий", color: "#3B82F6" },
-    processing: { ru: "В обработке", pl: "W trakcie", ua: "В обробці", color: "#F59E0B" },
-    roasting: { ru: "Обжаривается", pl: "Palenie", ua: "Обсмажується", color: "#F97316" },
-    shipped: { ru: "Отправлен", pl: "Wysłane", ua: "Відправлено", color: "#8B5CF6" },
-    delivered: { ru: "Доставлен", pl: "Dostarczono", ua: "Доставлено", color: "#22C55E" },
-    cancelled: { ru: "Отменён", pl: "Anulowane", ua: "Скасовано", color: "#EF4444" },
+    new:        { ru: "Новый",        pl: "Nowe",        ua: "Новий",        color: "#3B82F6" },
+    processing: { ru: "В обработке",  pl: "W trakcie",   ua: "В обробці",    color: "#F59E0B" },
+    roasting:   { ru: "Обжаривается", pl: "Palenie",     ua: "Обсмажується", color: "#F97316" },
+    shipped:    { ru: "Отправлен",    pl: "Wysłane",     ua: "Відправлено",  color: "#8B5CF6" },
+    delivered:  { ru: "Доставлен",    pl: "Dostarczono", ua: "Доставлено",   color: "#22C55E" },
+    completed:  { ru: "Выполнен",     pl: "Zrealizowano",ua: "Виконано",     color: "#22C55E" },
+    cancelled:  { ru: "Отменён",      pl: "Anulowane",   ua: "Скасовано",    color: "#EF4444" },
+  };
+
+  const PT = {
+    ru: {
+      title: "Паспорт заказа", loading: "Загрузка...", not_found: "Заказ не найден",
+      client: "Клиент", weight: "Вес", roast_date: "Дата обжарки",
+      order_date: "Дата заказа", status: "Статус", flavor: "Вкусовые ноты",
+      unit_g: "г", locale: "ru-RU",
+    },
+    pl: {
+      title: "Paszport zamówienia", loading: "Ładowanie...", not_found: "Zamówienie nie znalezione",
+      client: "Klient", weight: "Waga", roast_date: "Data palenia",
+      order_date: "Data zamówienia", status: "Status", flavor: "Nuty smakowe",
+      unit_g: "g", locale: "pl-PL",
+    },
+    ua: {
+      title: "Паспорт замовлення", loading: "Завантаження...", not_found: "Замовлення не знайдено",
+      client: "Клієнт", weight: "Вага", roast_date: "Дата обсмажки",
+      order_date: "Дата замовлення", status: "Статус", flavor: "Смакові ноти",
+      unit_g: "г", locale: "uk-UA",
+    },
   };
 
   const passportStyles = `
@@ -315,7 +337,6 @@ function PassportPage({ token }) {
     .passport-header { background: linear-gradient(135deg, #2B58A1, #1a3d7a); padding: 28px 24px; text-align: center; }
     .passport-logo { font-size: 13px; color: rgba(255,255,255,0.6); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
     .passport-title { font-size: 22px; font-weight: 700; color: #fff; }
-    .passport-subtitle { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
     .passport-body { padding: 24px; }
     .passport-product { font-size: 20px; font-weight: 700; color: #F1F5F9; margin-bottom: 4px; }
     .passport-origin { font-size: 13px; color: #94A3B8; margin-bottom: 20px; }
@@ -331,23 +352,32 @@ function PassportPage({ token }) {
     .passport-coffee-icon { font-size: 40px; margin-bottom: 10px; }
     .loading { text-align: center; color: #64748B; padding: 60px; font-size: 16px; }
     .error { text-align: center; color: #EF4444; padding: 60px; font-size: 16px; }
+    .lang-switch { display: flex; gap: 8px; justify-content: center; padding: 12px; background: #0F172A; }
+    .lang-btn { background: #1E293B; border: 1px solid #334155; color: #94A3B8; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+    .lang-btn.active { background: #2B58A1; border-color: #2B58A1; color: #fff; }
   `;
+
+  // Determine language from client record, default ru
+  const rawLang = order?.clients?.lang?.toLowerCase() || "ru";
+  const [activeLang, setActiveLang] = useState(null);
+  const lang = activeLang || (PT[rawLang] ? rawLang : "ru");
+  const t = PT[lang];
 
   if (loading) return (
     <>
       <style>{passportStyles}</style>
-      <div className="passport-wrap"><div className="loading">☕ Загрузка...</div></div>
+      <div className="passport-wrap"><div className="loading">☕ {PT.ru.loading}</div></div>
     </>
   );
 
   if (error) return (
     <>
       <style>{passportStyles}</style>
-      <div className="passport-wrap"><div className="error">❌ {error}</div></div>
+      <div className="passport-wrap"><div className="error">❌ {PT.ru.not_found}</div></div>
     </>
   );
 
-  const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, color: "#64748B" };
+  const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, pl: order.status, ua: order.status, color: "#64748B" };
   const clientName = order.clients?.name || "—";
   const productName = order.products?.name || "—";
   const origin = order.products?.origin || "";
@@ -361,8 +391,15 @@ function PassportPage({ token }) {
           <div className="passport-header">
             <div className="passport-coffee-icon">☕</div>
             <div className="passport-logo">Coffee Verve</div>
-            <div className="passport-title">Паспорт заказа</div>
-            <div className="passport-subtitle">Passport zamówienia · Паспорт замовлення</div>
+            <div className="passport-title">{t.title}</div>
+          </div>
+          <div className="lang-switch">
+            {["ru","pl","ua"].map(l => (
+              <button key={l} className={"lang-btn" + (lang === l ? " active" : "")}
+                onClick={() => setActiveLang(l)}>
+                {l.toUpperCase()}
+              </button>
+            ))}
           </div>
           <div className="passport-body">
             <div className="passport-product">{productName}</div>
@@ -370,32 +407,32 @@ function PassportPage({ token }) {
 
             {flavor && (
               <div className="passport-flavor">
-                <div className="passport-flavor-label">Вкусовые ноты</div>
+                <div className="passport-flavor-label">{t.flavor}</div>
                 <div className="passport-flavor-text">✨ {flavor}</div>
               </div>
             )}
 
             <div className="passport-row">
-              <span className="passport-label">Клиент</span>
+              <span className="passport-label">{t.client}</span>
               <span className="passport-value">{clientName}</span>
             </div>
             <div className="passport-row">
-              <span className="passport-label">Вес</span>
-              <span className="passport-value">{order.weight}г</span>
+              <span className="passport-label">{t.weight}</span>
+              <span className="passport-value">{order.weight}{t.unit_g}</span>
             </div>
             {order.roast_date && (
               <div className="passport-row">
-                <span className="passport-label">Дата обжарки</span>
-                <span className="passport-value">{new Date(order.roast_date).toLocaleDateString("ru-RU")}</span>
+                <span className="passport-label">{t.roast_date}</span>
+                <span className="passport-value">{new Date(order.roast_date).toLocaleDateString(t.locale)}</span>
               </div>
             )}
             <div className="passport-row">
-              <span className="passport-label">Дата заказа</span>
-              <span className="passport-value">{new Date(order.created_at).toLocaleDateString("ru-RU")}</span>
+              <span className="passport-label">{t.order_date}</span>
+              <span className="passport-value">{new Date(order.created_at).toLocaleDateString(t.locale)}</span>
             </div>
             <div className="passport-row">
-              <span className="passport-label">Статус</span>
-              <span className="passport-status" style={{ background: statusInfo.color }}>{statusInfo.ru}</span>
+              <span className="passport-label">{t.status}</span>
+              <span className="passport-status" style={{ background: statusInfo.color }}>{statusInfo[lang]}</span>
             </div>
           </div>
           <div className="passport-footer">

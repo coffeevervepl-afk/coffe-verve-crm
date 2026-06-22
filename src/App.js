@@ -275,7 +275,143 @@ async function generateQR(token) {
 // ============================================================
 // MAIN APP
 // ============================================================
-export default function App() {
+
+// ============================================================
+// PASSPORT PAGE (публичная страница для клиентов по QR)
+// ============================================================
+function PassportPage({ token }) {
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchOrder() {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, products(*), clients(*)")
+        .eq("qr_token", token)
+        .single();
+      if (error || !data) setError("Заказ не найден");
+      else setOrder(data);
+      setLoading(false);
+    }
+    fetchOrder();
+  }, [token]);
+
+  const STATUS_LABELS = {
+    new: { ru: "Новый", pl: "Nowe", ua: "Новий", color: "#3B82F6" },
+    processing: { ru: "В обработке", pl: "W trakcie", ua: "В обробці", color: "#F59E0B" },
+    roasting: { ru: "Обжаривается", pl: "Palenie", ua: "Обсмажується", color: "#F97316" },
+    shipped: { ru: "Отправлен", pl: "Wysłane", ua: "Відправлено", color: "#8B5CF6" },
+    delivered: { ru: "Доставлен", pl: "Dostarczono", ua: "Доставлено", color: "#22C55E" },
+    cancelled: { ru: "Отменён", pl: "Anulowane", ua: "Скасовано", color: "#EF4444" },
+  };
+
+  const passportStyles = `
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0F172A; font-family: 'Segoe UI', sans-serif; }
+    .passport-wrap { min-height: 100vh; background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .passport-card { background: #1E293B; border-radius: 20px; max-width: 420px; width: 100%; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5); border: 1px solid #334155; }
+    .passport-header { background: linear-gradient(135deg, #2B58A1, #1a3d7a); padding: 28px 24px; text-align: center; }
+    .passport-logo { font-size: 13px; color: rgba(255,255,255,0.6); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+    .passport-title { font-size: 22px; font-weight: 700; color: #fff; }
+    .passport-subtitle { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    .passport-body { padding: 24px; }
+    .passport-product { font-size: 20px; font-weight: 700; color: #F1F5F9; margin-bottom: 4px; }
+    .passport-origin { font-size: 13px; color: #94A3B8; margin-bottom: 20px; }
+    .passport-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+    .passport-row:last-of-type { border-bottom: none; }
+    .passport-label { font-size: 12px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; }
+    .passport-value { font-size: 14px; color: #E2E8F0; font-weight: 500; }
+    .passport-status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #fff; }
+    .passport-flavor { background: #0F172A; border-radius: 10px; padding: 14px; margin: 16px 0; }
+    .passport-flavor-label { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .passport-flavor-text { font-size: 14px; color: #CBD5E1; font-style: italic; }
+    .passport-footer { background: #0F172A; padding: 16px 24px; text-align: center; font-size: 12px; color: #475569; }
+    .passport-coffee-icon { font-size: 40px; margin-bottom: 10px; }
+    .loading { text-align: center; color: #64748B; padding: 60px; font-size: 16px; }
+    .error { text-align: center; color: #EF4444; padding: 60px; font-size: 16px; }
+  `;
+
+  if (loading) return (
+    <>
+      <style>{passportStyles}</style>
+      <div className="passport-wrap"><div className="loading">☕ Загрузка...</div></div>
+    </>
+  );
+
+  if (error) return (
+    <>
+      <style>{passportStyles}</style>
+      <div className="passport-wrap"><div className="error">❌ {error}</div></div>
+    </>
+  );
+
+  const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, color: "#64748B" };
+  const clientName = order.clients?.name || "—";
+  const productName = order.products?.name || "—";
+  const origin = order.products?.origin || "";
+  const flavor = order.products?.flavor_notes || "";
+
+  return (
+    <>
+      <style>{passportStyles}</style>
+      <div className="passport-wrap">
+        <div className="passport-card">
+          <div className="passport-header">
+            <div className="passport-coffee-icon">☕</div>
+            <div className="passport-logo">Coffee Verve</div>
+            <div className="passport-title">Паспорт заказа</div>
+            <div className="passport-subtitle">Passport zamówienia · Паспорт замовлення</div>
+          </div>
+          <div className="passport-body">
+            <div className="passport-product">{productName}</div>
+            {origin && <div className="passport-origin">🌍 {origin}</div>}
+
+            {flavor && (
+              <div className="passport-flavor">
+                <div className="passport-flavor-label">Вкусовые ноты</div>
+                <div className="passport-flavor-text">✨ {flavor}</div>
+              </div>
+            )}
+
+            <div className="passport-row">
+              <span className="passport-label">Клиент</span>
+              <span className="passport-value">{clientName}</span>
+            </div>
+            <div className="passport-row">
+              <span className="passport-label">Вес</span>
+              <span className="passport-value">{order.weight}г</span>
+            </div>
+            {order.roast_date && (
+              <div className="passport-row">
+                <span className="passport-label">Дата обжарки</span>
+                <span className="passport-value">{new Date(order.roast_date).toLocaleDateString("ru-RU")}</span>
+              </div>
+            )}
+            <div className="passport-row">
+              <span className="passport-label">Дата заказа</span>
+              <span className="passport-value">{new Date(order.created_at).toLocaleDateString("ru-RU")}</span>
+            </div>
+            <div className="passport-row">
+              <span className="passport-label">Статус</span>
+              <span className="passport-status" style={{ background: statusInfo.color }}>{statusInfo.ru}</span>
+            </div>
+          </div>
+          <div className="passport-footer">
+            Coffee Verve · Warszawa · Specialty Coffee
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function CRMApp() {
   const [lang, setLang] = useState("ru");
   const [page, setPage] = useState("dashboard");
   const [selectedClient, setSelectedClient] = useState(null);
@@ -298,6 +434,14 @@ export default function App() {
       </div>
     </>
   );
+}
+
+export default function App() {
+  const passportMatch = window.location.pathname.match(/^\/passport\/([\w-]+)$/);
+  if (passportMatch) {
+    return <PassportPage token={passportMatch[1]} />;
+  }
+  return <CRMApp />;
 }
 
 // ============================================================

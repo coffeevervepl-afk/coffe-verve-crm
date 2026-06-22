@@ -1387,7 +1387,7 @@ function ClientDetail({ t, client, onBack, lang }) {
       )}
 
       {/* Order Detail + QR Modal */}
-      {selectedOrder && <OrderQRModal t={t} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
+      {selectedOrder && <OrderQRModal t={t} lang={lang} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
 
       {/* Edit Client Modal */}
       {showEditModal && editForm && (
@@ -1434,7 +1434,7 @@ function ClientDetail({ t, client, onBack, lang }) {
 // ============================================================
 // ORDER QR MODAL
 // ============================================================
-function OrderQRModal({ t, order, onClose, onRefresh }) {
+function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
   const [qrUrl, setQrUrl] = useState(null);
   const [status, setStatus] = useState(order.status);
 
@@ -1471,7 +1471,7 @@ function OrderQRModal({ t, order, onClose, onRefresh }) {
               [t.roast_date, fmtDate(order.roast_date)],
               [t.total, fmtMoney(order.total)],
               [t.date, fmtDate(order.created_at)],
-              ["Вкус", order.products?.flavor_notes],
+              [t.flavor_notes, order.products?.[lang === "pl" ? "flavor_notes_pl" : lang === "ua" ? "flavor_notes_ua" : "flavor_notes"] || order.products?.flavor_notes],
             ].map(([l, v]) => v && (
               <div key={l} className="detail-row"><span className="detail-label">{l}</span><span className="detail-value">{v}</span></div>
             ))}
@@ -1512,7 +1512,7 @@ function Orders({ t, lang }) {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("orders").select("*, clients(name, client_code), products(name, flavor_notes)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("orders").select("*, clients(name, client_code, lang), products(name, flavor_notes, flavor_notes_pl, flavor_notes_ua)").order("created_at", { ascending: false });
     setOrders(data || []);
     setLoading(false);
   }, []);
@@ -1578,7 +1578,7 @@ function Orders({ t, lang }) {
           </div>
         )}
       </div>
-      {selectedOrder && <OrderQRModal t={t} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
+      {selectedOrder && <OrderQRModal t={t} lang={lang} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
     </div>
   );
 }

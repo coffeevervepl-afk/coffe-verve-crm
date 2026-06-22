@@ -263,8 +263,9 @@ const styles = `
 // ============================================================
 // QR GENERATOR
 // ============================================================
-async function generateQR(token) {
-  const url = `${window.location.origin}/passport/${token}`;
+async function generateQR(token, lang) {
+  const langParam = lang ? `?lang=${lang}` : "";
+  const url = `${window.location.origin}/passport/${token}${langParam}`;
   try {
     const canvas = document.createElement("canvas");
     await QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#000000", light: "#FFFFFF" } });
@@ -405,7 +406,8 @@ function PassportPage({ token }) {
     .warranty-success { text-align: center; color: #22C55E; font-size: 15px; font-weight: 600; padding: 16px 0; }
   `;
 
-  const rawLang = order?.clients?.lang?.toLowerCase() || "ru";
+  const urlLang = new URLSearchParams(window.location.search).get("lang")?.toLowerCase();
+  const rawLang = urlLang && PT[urlLang] ? urlLang : (order?.clients?.lang?.toLowerCase() || "ru");
   const lang = activeLang || (PT[rawLang] ? rawLang : "ru");
   const t = PT[lang];
 
@@ -442,7 +444,8 @@ function PassportPage({ token }) {
   const orderNum = `#CVC-${order.qr_token?.slice(0,8).toUpperCase() || order.id?.slice(0,8).toUpperCase()}`;
   const productName = order.products?.name || "—";
   const origin = order.products?.origin || "";
-  const flavor = order.products?.flavor_notes || "";
+  const flavorKey = lang === "pl" ? "flavor_notes_pl" : lang === "ua" ? "flavor_notes_ua" : "flavor_notes";
+  const flavor = order.products?.[flavorKey] || order.products?.flavor_notes || "";
 
   return (
     <>
@@ -1437,7 +1440,8 @@ function OrderQRModal({ t, order, onClose, onRefresh }) {
 
   useEffect(() => {
     if (order.qr_token) {
-      generateQR(order.qr_token).then(setQrUrl);
+      const clientLang = order.clients?.lang?.toLowerCase() || "ru";
+      generateQR(order.qr_token, clientLang).then(setQrUrl);
     }
   }, [order]);
 

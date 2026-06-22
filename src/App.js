@@ -27,7 +27,7 @@ const T = {
     top_products: "Топ товаров", by_source: "По источнику",
     by_language: "По языку", by_city: "По городу",
     order_history: "История заказов", client_card: "Карточка клиента",
-    new_order: "Новый заказ", new_client: "Новый клиент",
+    new_order: "Новый заказ", new_client: "Новый клиент", print_label: "Этикетка", print_sending: "Отправка...", print_ok: "✅ Отправлено в печать!", print_err: "❌ Ошибка. Проверь N8N webhook.",
     status_new: "Новый", status_processing: "В обработке",
     status_shipped: "Отправлен", status_completed: "Выполнен",
     status_cancelled: "Отменён", weight: "Вес", price: "Цена",
@@ -62,7 +62,7 @@ const T = {
     top_products: "Top produktów", by_source: "Wg źródła",
     by_language: "Wg języka", by_city: "Wg miasta",
     order_history: "Historia zamówień", client_card: "Karta klienta",
-    new_order: "Nowe zamówienie", new_client: "Nowy klient",
+    new_order: "Nowe zamówienie", print_label: "Etykieta", print_sending: "Wysyłanie...", print_ok: "✅ Wysłano do druku!", print_err: "❌ Błąd. Sprawdź webhook N8N.", new_client: "Nowy klient",
     status_new: "Nowe", status_processing: "W trakcie",
     status_shipped: "Wysłane", status_completed: "Zrealizowane",
     status_cancelled: "Anulowane", weight: "Waga", price: "Cena",
@@ -97,7 +97,7 @@ const T = {
     top_products: "Топ товарів", by_source: "За джерелом",
     by_language: "За мовою", by_city: "За містом",
     order_history: "Історія замовлень", client_card: "Картка клієнта",
-    new_order: "Нове замовлення", new_client: "Новий клієнт",
+    new_order: "Нове замовлення", print_label: "Етикетка", print_sending: "Надсилання...", print_ok: "✅ Надіслано на друк!", print_err: "❌ Помилка. Перевір N8N webhook.", new_client: "Новий клієнт",
     status_new: "Новий", status_processing: "В обробці",
     status_shipped: "Відправлено", status_completed: "Виконано",
     status_cancelled: "Скасовано", weight: "Вага", price: "Ціна",
@@ -1523,6 +1523,9 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
 // ============================================================
 // ORDERS
 // ============================================================
+// N8N Webhook URL — замени на свой после настройки N8N
+const N8N_WEBHOOK_URL = "https://YOUR_N8N_URL/webhook/bartender-print";
+
 function Orders({ t, lang }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -1530,6 +1533,36 @@ function Orders({ t, lang }) {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [printingId, setPrintingId] = useState(null);
+  const [printToast, setPrintToast] = useState(null);
+
+  async function printLabel(e, order) {
+    e.stopPropagation();
+    setPrintingId(order.id);
+    const passportUrl = `${window.location.origin}/passport/${order.qr_token}?lang=${order.clients?.language?.toLowerCase() || "ru"}`;
+    const payload = {
+      order_id: order.id,
+      client_code: order.clients?.client_code || "",
+      product: order.products?.name || "",
+      weight: order.weight,
+      roast_date: order.roast_date || "",
+      order_date: order.created_at,
+      passport_url: passportUrl,
+      qr_token: order.qr_token,
+    };
+    try {
+      const res = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setPrintToast(res.ok ? t.print_ok : t.print_err);
+    } catch {
+      setPrintToast(t.print_err);
+    }
+    setPrintingId(null);
+    setTimeout(() => setPrintToast(null), 3000);
+  }
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -1592,7 +1625,12 @@ function Orders({ t, lang }) {
                       </select>
                     </td>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button></td>
+                    <td style={{ whiteSpace: "nowrap", display: "flex", gap: 4 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button>
+                      <button className="btn-print" disabled={printingId === o.id} onClick={e => printLabel(e, o)}>
+                        {printingId === o.id ? "..." : "🖨"}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1602,6 +1640,7 @@ function Orders({ t, lang }) {
       </div>
       {selectedOrder && <OrderQRModal t={t} lang={lang} order={selectedOrder} onClose={() => setSelectedOrder(null)} onRefresh={fetchOrders} />}
       {showNewOrder && <QuickOrderModal t={t} onClose={() => setShowNewOrder(false)} onDone={() => { setShowNewOrder(false); fetchOrders(); }} />}
+      {printToast && <div className="print-toast">{printToast}</div>}
     </div>
   );
 }

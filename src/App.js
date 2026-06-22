@@ -410,7 +410,7 @@ function PassportPage({ token }) {
   async function submitWarranty() {
     if (!formReason) return;
     setFormSending(true);
-    const reason = formComment ? \`\${formReason}: \${formComment}\` : formReason;
+    const reason = formComment ? `${formReason}: ${formComment}` : formReason;
     await supabase.from("warranties").insert({
       order_id: order.id,
       reason,
@@ -437,7 +437,7 @@ function PassportPage({ token }) {
   );
 
   const statusInfo = STATUS_LABELS[order.status] || { ru: order.status, pl: order.status, ua: order.status, color: "#64748B" };
-  const orderNum = order.clients?.id ? \`#CVC-\${String(order.id).padStart(4,"0")}\` : \`#\${order.id}\`;
+  const orderNum = order.clients?.id ? `#CVC-${String(order.id).padStart(4,"0")}` : `#${order.id}`;
   const productName = order.products?.name || "—";
   const origin = order.products?.origin || "";
   const flavor = order.products?.flavor_notes || "";

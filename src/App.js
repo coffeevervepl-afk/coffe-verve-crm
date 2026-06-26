@@ -1523,8 +1523,7 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
 // ============================================================
 // ORDERS
 // ============================================================
-// N8N Webhook URL — замени на свой после настройки N8N
-const N8N_WEBHOOK_URL = "https://YOUR_N8N_URL/webhook/bartender-print";
+const N8N_WEBHOOK_URL = "https://n8n.coffeeverve.pl/webhook/bartender-print";
 
 function Orders({ t, lang }) {
   const [orders, setOrders] = useState([]);

@@ -70,6 +70,9 @@ const T = {
     classic_discount: "Скидка Classic (%)", gold_discount: "Скидка Gold (%)",
     platinum_discount: "Скидка Platinum (%)", shop_loyalty: "Лояльность (магазин)",
     no_shop_user: "Не зарегистрирован в магазине",
+    inactive_90: "Неактивные 90+ дней", min_discount_lbl: "Скидка гарантирована до",
+    last_purchase_lbl: "Посл. покупка", days_inactive_lbl: "Дней без покупок",
+    guaranteed_until: "Гарантировано до",
   },
   pl: {
     dashboard: "Pulpit", clients: "Klienci", orders: "Zamówienia",
@@ -127,6 +130,9 @@ const T = {
     classic_discount: "Rabat Classic (%)", gold_discount: "Rabat Gold (%)",
     platinum_discount: "Rabat Platinum (%)", shop_loyalty: "Lojalność (sklep)",
     no_shop_user: "Nie zarejestrowany w sklepie",
+    inactive_90: "Nieaktywni 90+ dni", min_discount_lbl: "Rabat gwarantowany do",
+    last_purchase_lbl: "Ost. zakup", days_inactive_lbl: "Dni bez zakupu",
+    guaranteed_until: "Gwarantowane do",
   },
   ua: {
     dashboard: "Дашборд", clients: "Клієнти", orders: "Замовлення",
@@ -184,6 +190,9 @@ const T = {
     classic_discount: "Знижка Classic (%)", gold_discount: "Знижка Gold (%)",
     platinum_discount: "Знижка Platinum (%)", shop_loyalty: "Лояльність (магазин)",
     no_shop_user: "Не зареєстрований у магазині",
+    inactive_90: "Неактивні 90+ днів", min_discount_lbl: "Знижка гарантована до",
+    last_purchase_lbl: "Остання покупка", days_inactive_lbl: "Днів без покупки",
+    guaranteed_until: "Гарантовано до",
   }
 };
 
@@ -1368,7 +1377,7 @@ function ClientDetail({ t, client, onBack, lang }) {
     supabase.from("products").select("*").eq("status", "active").then(({ data }) => setProducts(data || []));
     if (client.email) {
       supabase.from("shop_users")
-        .select("id,email,loyalty_level,spent_12m,discount_pct,referral_code,referred_by,referral_rewarded_at,is_b2b,b2b_discount,is_guest")
+        .select("id,email,loyalty_level,spent_12m,discount_pct,referral_code,referred_by,referral_rewarded_at,is_b2b,b2b_discount,is_guest,min_discount_until,last_purchase_at")
         .eq("email", client.email)
         .maybeSingle()
         .then(({ data }) => setShopUser(data || null));
@@ -1566,6 +1575,27 @@ function ClientDetail({ t, client, onBack, lang }) {
                   />
                 </div>
               )}
+              {/* Last purchase + inactive warning */}
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.last_purchase_lbl}</div>
+                {shopUser.last_purchase_at ? (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtDate(shopUser.last_purchase_at)}</div>
+                    {new Date(shopUser.last_purchase_at) < new Date(Date.now() - 90*86400000) && (
+                      <div style={{ marginTop: 4, fontSize: 10, color: "#DC2626", fontWeight: 600 }}>⚠ {t.inactive_90}</div>
+                    )}
+                  </>
+                ) : <div style={{ color: "#9CA3AF", fontSize: 12 }}>—</div>}
+              </div>
+
+              {/* Guaranteed discount */}
+              {shopUser.min_discount_until && new Date(shopUser.min_discount_until) > new Date() && (
+                <div style={{ background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 10, color: "#16A34A", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.guaranteed_until}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#15803D" }}>{fmtDate(shopUser.min_discount_until)}</div>
+                </div>
+              )}
+
               {shopUser.referral_code && (
                 <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12, gridColumn: "span 2" }}>
                   <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.referral_code_lbl}</div>
@@ -2525,7 +2555,7 @@ function LoyaltyAdmin({ t }) {
     setLoading(true);
     const { data } = await supabase
       .from("shop_users")
-      .select("id,email,name,loyalty_level,spent_12m,discount_pct,is_b2b,b2b_discount,referral_rewarded_at,is_guest")
+      .select("id,email,name,loyalty_level,spent_12m,discount_pct,is_b2b,b2b_discount,referral_rewarded_at,is_guest,min_discount_until,last_purchase_at")
       .order("spent_12m", { ascending: false, nullsFirst: false });
     setClients(data || []);
     setLoading(false);
@@ -2551,9 +2581,12 @@ function LoyaltyAdmin({ t }) {
     platinum_discount: t.platinum_discount,
   };
 
+  const ninety = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
   const filtered = clients.filter(c => {
-    const matchLevel = filter === "all" ? true
-      : filter === "b2b" ? c.is_b2b
+    const matchLevel = filter === "all"      ? true
+      : filter === "b2b"                     ? c.is_b2b
+      : filter === "inactive"                ? (!c.last_purchase_at || new Date(c.last_purchase_at) < ninety)
       : (c.loyalty_level || "classic") === filter;
     const q = search.toLowerCase();
     const matchSearch = !q || (c.email || "").toLowerCase().includes(q)
@@ -2562,11 +2595,12 @@ function LoyaltyAdmin({ t }) {
   });
 
   const counts = {
-    all: clients.length,
-    classic: clients.filter(c => !c.is_b2b && (c.loyalty_level || "classic") === "classic").length,
-    gold:    clients.filter(c => !c.is_b2b && c.loyalty_level === "gold").length,
-    platinum:clients.filter(c => !c.is_b2b && c.loyalty_level === "platinum").length,
-    b2b:     clients.filter(c => c.is_b2b).length,
+    all:      clients.length,
+    classic:  clients.filter(c => !c.is_b2b && (c.loyalty_level || "classic") === "classic").length,
+    gold:     clients.filter(c => !c.is_b2b && c.loyalty_level === "gold").length,
+    platinum: clients.filter(c => !c.is_b2b && c.loyalty_level === "platinum").length,
+    b2b:      clients.filter(c => c.is_b2b).length,
+    inactive: clients.filter(c => !c.last_purchase_at || new Date(c.last_purchase_at) < ninety).length,
   };
 
   const FILTERS = [
@@ -2575,6 +2609,7 @@ function LoyaltyAdmin({ t }) {
     { key: "gold",     label: t.level_gold },
     { key: "platinum", label: t.level_platinum },
     { key: "b2b",      label: t.level_b2b },
+    { key: "inactive", label: t.inactive_90, warn: true },
   ];
 
   return (
@@ -2621,6 +2656,8 @@ function LoyaltyAdmin({ t }) {
               {FILTERS.map(f => (
                 <button key={f.key}
                   className={"btn btn-sm " + (filter === f.key ? "btn-primary" : "btn-secondary")}
+                  style={f.warn && filter !== f.key && counts[f.key] > 0
+                    ? { borderColor: "#FCA5A5", color: "#DC2626" } : {}}
                   onClick={() => setFilter(f.key)}>
                   {f.label} <span style={{ opacity: 0.7, fontSize: 11 }}>({counts[f.key]})</span>
                 </button>
@@ -2646,13 +2683,17 @@ function LoyaltyAdmin({ t }) {
                   <th>{t.status}</th>
                   <th>{t.spent_12m}</th>
                   <th>{t.promo_value}</th>
-                  <th>{t.b2b_client}</th>
+                  <th>{t.last_purchase_lbl}</th>
+                  <th>{t.min_discount_lbl}</th>
                   <th>{t.referral_rewarded}</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(c => (
-                  <tr key={c.id}>
+                {filtered.map(c => {
+                  const isInactive = !c.last_purchase_at || new Date(c.last_purchase_at) < ninety;
+                  const minActive  = c.min_discount_until && new Date(c.min_discount_until) > new Date();
+                  return (
+                  <tr key={c.id} style={isInactive ? { background: "#FFF7F7" } : {}}>
                     <td>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name || "—"}</div>
                       <div style={{ fontSize: 11, color: "#6B7280" }}>{c.email}</div>
@@ -2667,8 +2708,18 @@ function LoyaltyAdmin({ t }) {
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>
                       {c.is_b2b ? (c.b2b_discount || 0) : (c.discount_pct || 0)}%
                     </td>
-                    <td style={{ textAlign: "center" }}>
-                      {c.is_b2b ? <span style={{ color: "#1D4ED8", fontWeight: 700 }}>B2B</span> : "—"}
+                    <td style={{ fontSize: 12 }}>
+                      {c.last_purchase_at ? (
+                        <span style={{ color: isInactive ? "#DC2626" : "#6B7280" }}>
+                          {fmtDate(c.last_purchase_at)}
+                          {isInactive && <span style={{ marginLeft: 4, fontSize: 10, background: "#FEE2E2", color: "#DC2626", padding: "1px 5px", borderRadius: 4 }}>90+</span>}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {minActive ? (
+                        <span style={{ color: "#16A34A", fontWeight: 500 }}>✓ {fmtDate(c.min_discount_until)}</span>
+                      ) : "—"}
                     </td>
                     <td style={{ fontSize: 12, color: "#6B7280" }}>
                       {c.referral_rewarded_at ? (
@@ -2676,7 +2727,8 @@ function LoyaltyAdmin({ t }) {
                       ) : "—"}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -53,6 +53,23 @@ const T = {
     review_text: "Текст", review_response: "Ответ продавца", review_approve: "✅ Опубликовать",
     review_reject: "❌ Отклонить", review_all: "Все", review_filter: "Фильтр",
     review_save_response: "Сохранить ответ", review_product: "Товар",
+    discounts: "Скидки", loyalty: "Лояльность",
+    promo_code: "Промокод", promo_type: "Тип", promo_value: "Значение",
+    promo_min_order: "Мин. заказ", promo_valid_until: "Действует до",
+    promo_max_uses: "Лимит", promo_used: "Исп.", promo_category: "Категория",
+    promo_active: "Активен", promo_create: "Создать промокод",
+    promo_fixed: "Фиксированный (zł)", promo_percent: "Процент (%)",
+    promo_one_per: "1 раз на клиента", promo_generate: "Сгенерировать",
+    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
+    level_b2b: "B2B", spent_12m: "Оборот за 12м",
+    loyalty_config: "Настройки лояльности", loyalty_clients: "Клиенты по уровням",
+    recalc: "Пересчитать уровень", recalc_ok: "Уровень пересчитан",
+    b2b_client: "B2B клиент", b2b_discount: "Скидка B2B (%)",
+    referral_code_lbl: "Реф. код", referral_rewarded: "Реферал вознаграждён",
+    gold_threshold: "Порог Gold (zł)", platinum_threshold: "Порог Platinum (zł)",
+    classic_discount: "Скидка Classic (%)", gold_discount: "Скидка Gold (%)",
+    platinum_discount: "Скидка Platinum (%)", shop_loyalty: "Лояльность (магазин)",
+    no_shop_user: "Не зарегистрирован в магазине",
   },
   pl: {
     dashboard: "Pulpit", clients: "Klienci", orders: "Zamówienia",
@@ -93,6 +110,23 @@ const T = {
     review_text: "Treść", review_response: "Odpowiedź sprzedawcy", review_approve: "✅ Opublikuj",
     review_reject: "❌ Odrzuć", review_all: "Wszystkie", review_filter: "Filtr",
     review_save_response: "Zapisz odpowiedź", review_product: "Produkt",
+    discounts: "Rabaty", loyalty: "Lojalność",
+    promo_code: "Kod promo", promo_type: "Typ", promo_value: "Wartość",
+    promo_min_order: "Min. zamówienie", promo_valid_until: "Ważny do",
+    promo_max_uses: "Limit", promo_used: "Użyty", promo_category: "Kategoria",
+    promo_active: "Aktywny", promo_create: "Utwórz kod promo",
+    promo_fixed: "Stały (zł)", promo_percent: "Procent (%)",
+    promo_one_per: "1 raz na klienta", promo_generate: "Generuj",
+    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
+    level_b2b: "B2B", spent_12m: "Obrót 12m",
+    loyalty_config: "Konfiguracja lojalnościowa", loyalty_clients: "Klienci wg poziomów",
+    recalc: "Przelicz poziom", recalc_ok: "Poziom przeliczony",
+    b2b_client: "Klient B2B", b2b_discount: "Rabat B2B (%)",
+    referral_code_lbl: "Kod ref.", referral_rewarded: "Polecający nagrodzony",
+    gold_threshold: "Próg Gold (zł)", platinum_threshold: "Próg Platinum (zł)",
+    classic_discount: "Rabat Classic (%)", gold_discount: "Rabat Gold (%)",
+    platinum_discount: "Rabat Platinum (%)", shop_loyalty: "Lojalność (sklep)",
+    no_shop_user: "Nie zarejestrowany w sklepie",
   },
   ua: {
     dashboard: "Дашборд", clients: "Клієнти", orders: "Замовлення",
@@ -133,6 +167,23 @@ const T = {
     review_text: "Текст", review_response: "Відповідь продавця", review_approve: "✅ Опублікувати",
     review_reject: "❌ Відхилити", review_all: "Всі", review_filter: "Фільтр",
     review_save_response: "Зберегти відповідь", review_product: "Товар",
+    discounts: "Знижки", loyalty: "Лояльність",
+    promo_code: "Промокод", promo_type: "Тип", promo_value: "Значення",
+    promo_min_order: "Мін. замовлення", promo_valid_until: "Діє до",
+    promo_max_uses: "Ліміт", promo_used: "Вик.", promo_category: "Категорія",
+    promo_active: "Активний", promo_create: "Створити промокод",
+    promo_fixed: "Фіксований (zł)", promo_percent: "Відсоток (%)",
+    promo_one_per: "1 раз на клієнта", promo_generate: "Згенерувати",
+    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
+    level_b2b: "B2B", spent_12m: "Оборот за 12м",
+    loyalty_config: "Налаштування лояльності", loyalty_clients: "Клієнти за рівнями",
+    recalc: "Перерахувати рівень", recalc_ok: "Рівень перераховано",
+    b2b_client: "B2B клієнт", b2b_discount: "Знижка B2B (%)",
+    referral_code_lbl: "Реф. код", referral_rewarded: "Реферал винагороджено",
+    gold_threshold: "Поріг Gold (zł)", platinum_threshold: "Поріг Platinum (zł)",
+    classic_discount: "Знижка Classic (%)", gold_discount: "Знижка Gold (%)",
+    platinum_discount: "Знижка Platinum (%)", shop_loyalty: "Лояльність (магазин)",
+    no_shop_user: "Не зареєстрований у магазині",
   }
 };
 
@@ -267,6 +318,23 @@ const styles = `
   .month-cell .m-val { font-size: 13px; font-weight: 700; color: #16A34A; }
   .empty-state { text-align: center; padding: 40px; color: #9CA3AF; font-size: 14px; }
   .code-tag { font-size: 10px; color: #6B7280; font-family: monospace; background: #F3F4F6; padding: 2px 6px; border-radius: 3px; }
+  .level-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
+  .level-classic { background: #F3F4F6; color: #4B5563; border: 1px solid #D1D5DB; }
+  .level-gold { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+  .level-platinum { background: #EDE9FE; color: #4C1D95; border: 1px solid #DDD6FE; }
+  .level-b2b { background: #DBEAFE; color: #1E3A8A; border: 1px solid #BFDBFE; }
+  .promo-tag { display: inline-block; font-size: 11px; font-family: monospace; font-weight: 700; background: #EFF6FF; color: #1D4ED8; padding: 2px 8px; border-radius: 4px; border: 1px solid #BFDBFE; letter-spacing: 0.05em; }
+  .toggle-switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #D1D5DB; border-radius: 18px; transition: 0.2s; }
+  .toggle-slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  .toggle-switch input:checked + .toggle-slider { background: #22C55E; }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+  .config-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .config-item { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px; }
+  .config-item label { display: block; font-size: 10px; color: #6B7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .config-item input { width: 100%; padding: 6px 8px; border: 1px solid #E5E7EB; border-radius: 5px; font-size: 14px; font-weight: 700; color: #1F2937; font-family: 'Inter', sans-serif; text-align: center; }
+  .config-item input:focus { outline: none; border-color: #22C55E; }
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .main { margin-left: 0; }
@@ -615,6 +683,8 @@ function CRMApp() {
           {page === "products" && <Products t={t} lang={lang} />}
           {page === "warranties" && <Warranties t={t} />}
           {page === "reviews" && <Reviews t={t} />}
+          {page === "discounts" && <Discounts t={t} />}
+          {page === "loyalty" && <LoyaltyAdmin t={t} />}
           {page === "staff" && <Staff t={t} />}
         </div>
       </div>
@@ -641,6 +711,8 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
     { key: "products", label: t.products },
     { key: "warranties", label: t.warranties },
     { key: "reviews", label: t.reviews },
+    { key: "discounts", label: t.discounts },
+    { key: "loyalty", label: t.loyalty },
     { key: "staff", label: t.staff },
   ];
   const icons = {
@@ -650,6 +722,8 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
     products: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
     warranties: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
     staff: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    discounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+    loyalty: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   };
   return (
     <div className="sidebar">
@@ -1257,6 +1331,19 @@ function Clients({ t, onSelect }) {
 // ============================================================
 // CLIENT DETAIL
 // ============================================================
+const LEVEL_COLORS = {
+  classic:  "level-classic",
+  gold:     "level-gold",
+  platinum: "level-platinum",
+};
+
+function LevelBadge({ level, t }) {
+  if (!level) return <span className="level-badge level-classic">{t.level_classic}</span>;
+  const cls = LEVEL_COLORS[level] || "level-classic";
+  const lbl = t["level_" + level] || level;
+  return <span className={`level-badge ${cls}`}>{lbl}</span>;
+}
+
 function ClientDetail({ t, client, onBack, lang }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1267,13 +1354,25 @@ function ClientDetail({ t, client, onBack, lang }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [currentClient, setCurrentClient] = useState(client);
+  const [shopUser, setShopUser] = useState(null);
+  const [recalcLoading, setRecalcLoading] = useState(false);
+  const [recalcMsg, setRecalcMsg] = useState("");
 
   useEffect(() => {
     if (!client) return;
     setCurrentClient(client);
     setEditForm({ ...client });
+    setShopUser(null);
+    setRecalcMsg("");
     fetchOrders();
     supabase.from("products").select("*").eq("status", "active").then(({ data }) => setProducts(data || []));
+    if (client.email) {
+      supabase.from("shop_users")
+        .select("id,email,loyalty_level,spent_12m,discount_pct,referral_code,referred_by,referral_rewarded_at,is_b2b,b2b_discount,is_guest")
+        .eq("email", client.email)
+        .maybeSingle()
+        .then(({ data }) => setShopUser(data || null));
+    }
   }, [client]);
 
   async function fetchOrders() {
@@ -1303,6 +1402,36 @@ function ClientDetail({ t, client, onBack, lang }) {
   }
 
   const totalSpent = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+  async function recalcLoyalty() {
+    if (!shopUser) return;
+    setRecalcLoading(true);
+    setRecalcMsg("");
+    await supabase.rpc("recalc_loyalty", { p_user_id: shopUser.id });
+    const { data } = await supabase.from("shop_users")
+      .select("id,loyalty_level,spent_12m,discount_pct,referral_rewarded_at")
+      .eq("id", shopUser.id).maybeSingle();
+    if (data) setShopUser(prev => ({ ...prev, ...data }));
+    setRecalcLoading(false);
+    setRecalcMsg(t.recalc_ok);
+    setTimeout(() => setRecalcMsg(""), 3000);
+  }
+
+  async function toggleB2B(checked) {
+    if (!shopUser) return;
+    const discount = checked ? (shopUser.b2b_discount || 10) : 0;
+    await supabase.from("shop_users")
+      .update({ is_b2b: checked, b2b_discount: discount, discount_pct: checked ? discount : null })
+      .eq("id", shopUser.id);
+    setShopUser(prev => ({ ...prev, is_b2b: checked, b2b_discount: discount }));
+  }
+
+  async function saveB2BDiscount(val) {
+    if (!shopUser?.is_b2b) return;
+    const n = parseInt(val) || 0;
+    await supabase.from("shop_users").update({ b2b_discount: n, discount_pct: n }).eq("id", shopUser.id);
+    setShopUser(prev => ({ ...prev, b2b_discount: n }));
+  }
 
   if (!currentClient) return null;
 
@@ -1385,6 +1514,69 @@ function ClientDetail({ t, client, onBack, lang }) {
               </table>
             )}
           </div>
+        </div>
+
+        {/* Shop Loyalty Panel */}
+        <div className="card" style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>{t.shop_loyalty}</div>
+            {shopUser && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={recalcLoyalty}
+                disabled={recalcLoading}
+              >
+                {recalcLoading ? "…" : "↻ " + t.recalc}
+              </button>
+            )}
+          </div>
+          {recalcMsg && <div style={{ color: "#16A34A", fontSize: 12, marginBottom: 8, fontWeight: 500 }}>✓ {recalcMsg}</div>}
+          {!shopUser ? (
+            <div style={{ color: "#9CA3AF", fontSize: 13, padding: "12px 0" }}>{t.no_shop_user}</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.status}</div>
+                <LevelBadge level={shopUser.loyalty_level || "classic"} t={t} />
+              </div>
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.spent_12m}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#1F2937" }}>{fmtMoney(shopUser.spent_12m || 0)}</div>
+              </div>
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.promo_value}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#16A34A" }}>
+                  {shopUser.is_b2b ? (shopUser.b2b_discount || 0) : (shopUser.discount_pct || 0)}%
+                </div>
+              </div>
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>{t.b2b_client}</div>
+                <label className="toggle-switch" style={{ marginTop: 2 }}>
+                  <input type="checkbox" checked={!!shopUser.is_b2b} onChange={e => toggleB2B(e.target.checked)} />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+              {shopUser.is_b2b && (
+                <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 10, color: "#1D4ED8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.b2b_discount}</div>
+                  <input
+                    type="number" min={0} max={50} defaultValue={shopUser.b2b_discount || 10}
+                    className="input" style={{ width: 70, padding: "4px 8px", fontSize: 14, fontWeight: 700 }}
+                    onBlur={e => saveB2BDiscount(e.target.value)}
+                  />
+                </div>
+              )}
+              {shopUser.referral_code && (
+                <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 12, gridColumn: "span 2" }}>
+                  <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>{t.referral_code_lbl}</div>
+                  <span className="promo-tag">{shopUser.referral_code}</span>
+                  {shopUser.referral_rewarded_at && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#16A34A" }}>✓ {t.referral_rewarded} {fmtDate(shopUser.referral_rewarded_at)}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -2079,6 +2271,417 @@ function Reviews({ t }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// DISCOUNTS — управление промокодами
+// ============================================================
+function Discounts({ t }) {
+  const [promos, setPromos]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [form, setForm] = useState({
+    code: "", type: "fixed", value: 15, min_order: 0,
+    valid_until: "", max_uses: 1, one_per_customer: true, category: "manual",
+  });
+
+  useEffect(() => { loadPromos(); }, []);
+
+  async function loadPromos() {
+    setLoading(true);
+    const { data } = await supabase
+      .from("shop_promo_codes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setPromos(data || []);
+    setLoading(false);
+  }
+
+  function generateCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const rnd = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+    setForm(f => ({ ...f, code: "CV-" + rnd }));
+  }
+
+  async function savePromo() {
+    if (!form.code.trim() || !form.value) return;
+    setSaving(true);
+    await supabase.from("shop_promo_codes").insert({
+      code:             form.code.trim().toUpperCase(),
+      type:             form.type,
+      value:            Number(form.value),
+      min_order:        Number(form.min_order) || 0,
+      valid_until:      form.valid_until || null,
+      max_uses:         form.max_uses ? Number(form.max_uses) : null,
+      used_count:       0,
+      one_per_customer: form.one_per_customer,
+      category:         form.category,
+      is_active:        true,
+    });
+    setSaving(false);
+    setShowModal(false);
+    setForm({ code: "", type: "fixed", value: 15, min_order: 0, valid_until: "", max_uses: 1, one_per_customer: true, category: "manual" });
+    loadPromos();
+  }
+
+  async function toggleActive(promo) {
+    await supabase.from("shop_promo_codes").update({ is_active: !promo.is_active }).eq("id", promo.id);
+    setPromos(prev => prev.map(p => p.id === promo.id ? { ...p, is_active: !p.is_active } : p));
+  }
+
+  async function deletePromo(id) {
+    if (!window.confirm("Удалить промокод?")) return;
+    await supabase.from("shop_promo_codes").delete().eq("id", id);
+    setPromos(prev => prev.filter(p => p.id !== id));
+  }
+
+  const CATEGORY_COLORS = {
+    welcome:  { background: "#DCFCE7", color: "#15803D" },
+    referral: { background: "#FEF3C7", color: "#92400E" },
+    birthday: { background: "#FCE7F3", color: "#9D174D" },
+    review:   { background: "#EFF6FF", color: "#1D4ED8" },
+    manual:   { background: "#F3F4F6", color: "#374151" },
+  };
+
+  return (
+    <div>
+      <div className="topbar">
+        <span className="topbar-title">{t.discounts}</span>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t.promo_create}</button>
+      </div>
+      <div className="content">
+        {loading ? <div className="empty-state">{t.loading}</div> : (
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t.promo_code}</th>
+                  <th>{t.promo_category}</th>
+                  <th>{t.promo_type} / {t.promo_value}</th>
+                  <th>{t.promo_min_order}</th>
+                  <th>{t.promo_valid_until}</th>
+                  <th>{t.promo_used} / {t.promo_max_uses}</th>
+                  <th>{t.promo_one_per}</th>
+                  <th>{t.promo_active}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {promos.length === 0 && (
+                  <tr><td colSpan={9}><div className="empty-state">{t.no_data}</div></td></tr>
+                )}
+                {promos.map(p => (
+                  <tr key={p.id}>
+                    <td><span className="promo-tag">{p.code}</span></td>
+                    <td>
+                      <span className="badge" style={CATEGORY_COLORS[p.category] || CATEGORY_COLORS.manual}>
+                        {p.category}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600, color: "#16A34A" }}>
+                      {p.type === "fixed" ? `−${p.value} zł` : `−${p.value}%`}
+                    </td>
+                    <td style={{ color: "#6B7280", fontSize: 12 }}>
+                      {p.min_order ? fmtMoney(p.min_order) : "—"}
+                    </td>
+                    <td style={{ color: "#6B7280", fontSize: 12 }}>
+                      {p.valid_until ? fmtDate(p.valid_until) : "∞"}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      <span style={{ fontWeight: 600 }}>{p.used_count || 0}</span>
+                      <span style={{ color: "#9CA3AF" }}> / {p.max_uses ?? "∞"}</span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {p.one_per_customer ? "✓" : "—"}
+                    </td>
+                    <td>
+                      <label className="toggle-switch">
+                        <input type="checkbox" checked={!!p.is_active} onChange={() => toggleActive(p)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </td>
+                    <td>
+                      <button className="action-icon-btn danger" onClick={() => deletePromo(p.id)} title={t.delete}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="modal">
+            <div className="modal-title">{t.promo_create}</div>
+            <div className="form-group">
+              <label className="form-label">{t.promo_code}</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input className="input" style={{ flex: 1 }} value={form.code}
+                  onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                  placeholder="CV-XXXXXXXX" />
+                <button className="btn btn-secondary" onClick={generateCode}>{t.promo_generate}</button>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.promo_type}</label>
+                <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                  <option value="fixed">{t.promo_fixed}</option>
+                  <option value="percent">{t.promo_percent}</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.promo_value}</label>
+                <input className="input" type="number" min={1} value={form.value}
+                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.promo_min_order} (zł)</label>
+                <input className="input" type="number" min={0} value={form.min_order}
+                  onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.promo_max_uses}</label>
+                <input className="input" type="number" min={1} value={form.max_uses}
+                  onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
+                  placeholder="∞" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.promo_valid_until}</label>
+                <input className="input" type="date" value={form.valid_until}
+                  onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.promo_category}</label>
+                <select className="input" value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {["manual","welcome","referral","birthday","review"].map(c =>
+                    <option key={c} value={c}>{c}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={form.one_per_customer}
+                  onChange={e => setForm(f => ({ ...f, one_per_customer: e.target.checked }))} />
+                <span className="toggle-slider" />
+              </label>
+              <span style={{ fontSize: 13, color: "#374151" }}>{t.promo_one_per}</span>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
+              <button className="btn btn-primary" onClick={savePromo} disabled={saving || !form.code.trim()}>
+                {saving ? "…" : t.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// LOYALTY ADMIN — настройки + клиенты по уровням
+// ============================================================
+function LoyaltyAdmin({ t }) {
+  const [config, setConfig]       = useState({});
+  const [clients, setClients]     = useState([]);
+  const [filter, setFilter]       = useState("all");
+  const [search, setSearch]       = useState("");
+  const [loading, setLoading]     = useState(true);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [cfgMsg, setCfgMsg]       = useState("");
+
+  useEffect(() => {
+    loadConfig();
+    loadClients();
+  }, []);
+
+  async function loadConfig() {
+    const { data } = await supabase.from("loyalty_config").select("key,value");
+    if (data) {
+      const obj = {};
+      data.forEach(r => { obj[r.key] = r.value; });
+      setConfig(obj);
+    }
+  }
+
+  async function loadClients() {
+    setLoading(true);
+    const { data } = await supabase
+      .from("shop_users")
+      .select("id,email,name,loyalty_level,spent_12m,discount_pct,is_b2b,b2b_discount,referral_rewarded_at,is_guest")
+      .order("spent_12m", { ascending: false, nullsFirst: false });
+    setClients(data || []);
+    setLoading(false);
+  }
+
+  async function saveConfig() {
+    setSavingCfg(true);
+    setCfgMsg("");
+    const updates = Object.entries(config).map(([key, value]) =>
+      supabase.from("loyalty_config").update({ value: String(value) }).eq("key", key)
+    );
+    await Promise.all(updates);
+    setSavingCfg(false);
+    setCfgMsg("✓ Сохранено");
+    setTimeout(() => setCfgMsg(""), 3000);
+  }
+
+  const CONFIG_LABELS = {
+    gold_threshold:    t.gold_threshold,
+    platinum_threshold: t.platinum_threshold,
+    classic_discount:  t.classic_discount,
+    gold_discount:     t.gold_discount,
+    platinum_discount: t.platinum_discount,
+  };
+
+  const filtered = clients.filter(c => {
+    const matchLevel = filter === "all" ? true
+      : filter === "b2b" ? c.is_b2b
+      : (c.loyalty_level || "classic") === filter;
+    const q = search.toLowerCase();
+    const matchSearch = !q || (c.email || "").toLowerCase().includes(q)
+      || (c.name || "").toLowerCase().includes(q);
+    return matchLevel && matchSearch;
+  });
+
+  const counts = {
+    all: clients.length,
+    classic: clients.filter(c => !c.is_b2b && (c.loyalty_level || "classic") === "classic").length,
+    gold:    clients.filter(c => !c.is_b2b && c.loyalty_level === "gold").length,
+    platinum:clients.filter(c => !c.is_b2b && c.loyalty_level === "platinum").length,
+    b2b:     clients.filter(c => c.is_b2b).length,
+  };
+
+  const FILTERS = [
+    { key: "all",      label: t.review_all },
+    { key: "classic",  label: t.level_classic },
+    { key: "gold",     label: t.level_gold },
+    { key: "platinum", label: t.level_platinum },
+    { key: "b2b",      label: t.level_b2b },
+  ];
+
+  return (
+    <div>
+      <div className="topbar">
+        <span className="topbar-title">{t.loyalty}</span>
+      </div>
+      <div className="content">
+        {/* Config Editor */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>{t.loyalty_config}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {cfgMsg && <span style={{ fontSize: 12, color: "#16A34A", fontWeight: 500 }}>{cfgMsg}</span>}
+              <button className="btn btn-primary btn-sm" onClick={saveConfig} disabled={savingCfg}>
+                {savingCfg ? "…" : t.save}
+              </button>
+            </div>
+          </div>
+          <div className="config-grid">
+            {Object.keys(CONFIG_LABELS).map(key => (
+              <div key={key} className="config-item">
+                <label>{CONFIG_LABELS[key]}</label>
+                <input
+                  type="number" min={0} value={config[key] || ""}
+                  onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          {/* Visual thresholds hint */}
+          <div style={{ marginTop: 12, padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 12, color: "#4B5563", display: "flex", gap: 20 }}>
+            <span><span className="level-badge level-classic">{t.level_classic}</span> 0 – {Number(config.gold_threshold || 600) - 1} zł → {config.classic_discount || 5}%</span>
+            <span><span className="level-badge level-gold">{t.level_gold}</span> {config.gold_threshold || 600} – {Number(config.platinum_threshold || 1800) - 1} zł → {config.gold_discount || 10}%</span>
+            <span><span className="level-badge level-platinum">{t.level_platinum}</span> {config.platinum_threshold || 1800}+ zł → {config.platinum_discount || 15}%</span>
+          </div>
+        </div>
+
+        {/* Client Level List */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid #E5E7EB" }}>
+            <div className="card-title" style={{ marginBottom: 10 }}>{t.loyalty_clients}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              {FILTERS.map(f => (
+                <button key={f.key}
+                  className={"btn btn-sm " + (filter === f.key ? "btn-primary" : "btn-secondary")}
+                  onClick={() => setFilter(f.key)}>
+                  {f.label} <span style={{ opacity: 0.7, fontSize: 11 }}>({counts[f.key]})</span>
+                </button>
+              ))}
+              <input
+                className="search-bar"
+                style={{ margin: 0, flex: 1, minWidth: 180, maxWidth: 280 }}
+                placeholder={t.search}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          {loading ? (
+            <div className="empty-state">{t.loading}</div>
+          ) : filtered.length === 0 ? (
+            <div className="empty-state">{t.no_data}</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t.name} / {t.email}</th>
+                  <th>{t.status}</th>
+                  <th>{t.spent_12m}</th>
+                  <th>{t.promo_value}</th>
+                  <th>{t.b2b_client}</th>
+                  <th>{t.referral_rewarded}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr key={c.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name || "—"}</div>
+                      <div style={{ fontSize: 11, color: "#6B7280" }}>{c.email}</div>
+                      {c.is_guest && <span style={{ fontSize: 10, color: "#9CA3AF" }}>guest</span>}
+                    </td>
+                    <td>
+                      {c.is_b2b
+                        ? <span className="level-badge level-b2b">{t.level_b2b}</span>
+                        : <LevelBadge level={c.loyalty_level || "classic"} t={t} />}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{fmtMoney(c.spent_12m || 0)}</td>
+                    <td style={{ color: "#16A34A", fontWeight: 600 }}>
+                      {c.is_b2b ? (c.b2b_discount || 0) : (c.discount_pct || 0)}%
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {c.is_b2b ? <span style={{ color: "#1D4ED8", fontWeight: 700 }}>B2B</span> : "—"}
+                    </td>
+                    <td style={{ fontSize: 12, color: "#6B7280" }}>
+                      {c.referral_rewarded_at ? (
+                        <span style={{ color: "#16A34A" }}>✓ {fmtDate(c.referral_rewarded_at)}</span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,187 @@
+{
+  "name": "Reactivation Campaign",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 * * 1" }]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Monday 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dedxdwxqnmizupebaasx.supabase.co/rest/v1/rpc/check_reactivation_needed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": { "parameters": [] },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "get-inactive-clients",
+      "name": "Get Inactive Clients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "not-empty",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-clients",
+      "name": "Has Inactive Clients?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const client = $input.item.json;\n\n// Generate unique promo code\nconst chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\nconst rnd = Array.from({length: 8}, () => chars[Math.floor(Math.random()*chars.length)]).join('');\nconst code = 'REA-' + rnd;\n\n// Expiry: 3 days from now\nconst validUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();\n\n// Email content by language\nconst lang = (client.language || 'ru').toLowerCase();\n\nconst subjects = {\n  ru: 'Скучаем по тебе! −20% на следующий заказ ☕',\n  pl: 'Tęsknimy za Tobą! −20% na kolejne zamówienie ☕',\n  ua: 'Сумуємо за тобою! −20% на наступне замовлення ☕'\n};\n\nconst bodies = {\n  ru: `<html><body style=\"font-family:sans-serif;color:#1F2937;max-width:560px;margin:auto;padding:24px\">\n<p style=\"font-size:22px;font-weight:700;margin-bottom:8px\">☕ Давно не виделись!</p>\n<p style=\"color:#6B7280;margin-bottom:20px\">Мы заметили, что вы не делали заказы в Coffee Verve уже больше 90 дней.</p>\n<p style=\"margin-bottom:16px\">В подарок — персональный промокод на <strong style=\"color:#16A34A\">−20%</strong> на любой заказ:</p>\n<div style=\"background:#F0FDF4;border:2px solid #86EFAC;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px\">\n  <span style=\"font-size:28px;font-weight:800;letter-spacing:0.1em;color:#15803D\">${code}</span>\n  <p style=\"color:#6B7280;font-size:12px;margin-top:8px\">Действует 3 дня</p>\n</div>\n<a href=\"https://shop.coffee-verve.com/ru\" style=\"display:block;background:#2C1810;color:#fff;text-align:center;padding:14px 24px;border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:20px\">Перейти в магазин</a>\n<p style=\"font-size:12px;color:#9CA3AF\">Coffee Verve • specialty coffee Warsaw</p>\n</body></html>`,\n\n  pl: `<html><body style=\"font-family:sans-serif;color:#1F2937;max-width:560px;margin:auto;padding:24px\">\n<p style=\"font-size:22px;font-weight:700;margin-bottom:8px\">☕ Dawno się nie widzieliśmy!</p>\n<p style=\"color:#6B7280;margin-bottom:20px\">Zauważyliśmy, że nie składałeś zamówień w Coffee Verve przez ponad 90 dni.</p>\n<p style=\"margin-bottom:16px\">W prezencie — osobisty kod rabatowy na <strong style=\"color:#16A34A\">−20%</strong>:</p>\n<div style=\"background:#F0FDF4;border:2px solid #86EFAC;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px\">\n  <span style=\"font-size:28px;font-weight:800;letter-spacing:0.1em;color:#15803D\">${code}</span>\n  <p style=\"color:#6B7280;font-size:12px;margin-top:8px\">Ważny 3 dni</p>\n</div>\n<a href=\"https://shop.coffee-verve.com/pl\" style=\"display:block;background:#2C1810;color:#fff;text-align:center;padding:14px 24px;border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:20px\">Przejdź do sklepu</a>\n<p style=\"font-size:12px;color:#9CA3AF\">Coffee Verve • specialty coffee Warsaw</p>\n</body></html>`,\n\n  ua: `<html><body style=\"font-family:sans-serif;color:#1F2937;max-width:560px;margin:auto;padding:24px\">\n<p style=\"font-size:22px;font-weight:700;margin-bottom:8px\">☕ Давно не бачились!</p>\n<p style=\"color:#6B7280;margin-bottom:20px\">Ми помітили, що ви не робили замовлень у Coffee Verve вже понад 90 днів.</p>\n<p style=\"margin-bottom:16px\">У подарунок — персональний промокод на <strong style=\"color:#16A34A\">−20%</strong>:</p>\n<div style=\"background:#F0FDF4;border:2px solid #86EFAC;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px\">\n  <span style=\"font-size:28px;font-weight:800;letter-spacing:0.1em;color:#15803D\">${code}</span>\n  <p style=\"color:#6B7280;font-size:12px;margin-top:8px\">Діє 3 дні</p>\n</div>\n<a href=\"https://shop.coffee-verve.com/ua\" style=\"display:block;background:#2C1810;color:#fff;text-align:center;padding:14px 24px;border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:20px\">Перейти до магазину</a>\n<p style=\"font-size:12px;color:#9CA3AF\">Coffee Verve • specialty coffee Warsaw</p>\n</body></html>`\n};\n\nreturn [{\n  json: {\n    ...client,\n    promo_code:   code,\n    valid_until:  validUntil,\n    email_subject: subjects[lang] || subjects.ru,\n    email_html:   bodies[lang]   || bodies.ru\n  }\n}];"
+      },
+      "id": "build-email",
+      "name": "Generate Code + Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dedxdwxqnmizupebaasx.supabase.co/rest/v1/shop_promo_codes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"code\": \"{{ $json.promo_code }}\",\n  \"type\": \"percent\",\n  \"value\": 20,\n  \"min_order\": 0,\n  \"valid_until\": \"{{ $json.valid_until }}\",\n  \"max_uses\": 1,\n  \"used_count\": 0,\n  \"one_per_customer\": false,\n  \"category\": \"reactivation\",\n  \"is_active\": true\n}",
+        "options": {}
+      },
+      "id": "insert-promo",
+      "name": "Insert Promo Code",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SENDGRID_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"personalizations\": [{\n    \"to\": [{ \"email\": \"{{ $('Generate Code + Build Email').item.json.email }}\", \"name\": \"{{ $('Generate Code + Build Email').item.json.name }}\" }],\n    \"subject\": \"{{ $('Generate Code + Build Email').item.json.email_subject }}\"\n  }],\n  \"from\": { \"email\": \"hello@coffee-verve.com\", \"name\": \"Coffee Verve\" },\n  \"content\": [{ \"type\": \"text/html\", \"value\": \"{{ $('Generate Code + Build Email').item.json.email_html }}\" }]\n}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "send-email",
+      "name": "Send Email (SendGrid)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://dedxdwxqnmizupebaasx.supabase.co/rest/v1/shop_users?id=eq.{{ $('Generate Code + Build Email').item.json.user_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"reactivation_email_sent_at\": \"{{ new Date().toISOString() }}\" }",
+        "options": {}
+      },
+      "id": "mark-sent",
+      "name": "Mark Email Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 220]
+    }
+  ],
+  "connections": {
+    "Every Monday 09:00": {
+      "main": [[{ "node": "Get Inactive Clients", "type": "main", "index": 0 }]]
+    },
+    "Get Inactive Clients": {
+      "main": [[{ "node": "Has Inactive Clients?", "type": "main", "index": 0 }]]
+    },
+    "Has Inactive Clients?": {
+      "main": [
+        [{ "node": "Split In Batches", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [{ "node": "Generate Code + Build Email", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Generate Code + Build Email": {
+      "main": [[{ "node": "Insert Promo Code", "type": "main", "index": 0 }]]
+    },
+    "Insert Promo Code": {
+      "main": [[{ "node": "Send Email (SendGrid)", "type": "main", "index": 0 }]]
+    },
+    "Send Email (SendGrid)": {
+      "main": [[{ "node": "Mark Email Sent", "type": "main", "index": 0 }]]
+    },
+    "Mark Email Sent": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "email" }, { "name": "reactivation" }]
+}

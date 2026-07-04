@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import QRCode from "qrcode";
-
-// ============================================================
-// SUPABASE
-// ============================================================
-const supabase = createClient(
-  "https://dedxdwxqnmizupebaasx.supabase.co",
-  "sb_publishable_sgDkHJatPTMNiIchve_LAA_5T_JUF33"
-);
+import { supabase } from "./lib/supabaseClient";
+import ShopOrders from "./modules/shop/ShopOrders";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -350,6 +343,28 @@ const styles = `
     .stats-grid { grid-template-columns: 1fr 1fr; }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
   }
+  .nav-section-label { padding: 14px 18px 6px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.08em; }
+  .nav-item.disabled { cursor: default; opacity: 0.45; }
+  .nav-item.disabled:hover { background: none; color: rgba(255,255,255,0.65); }
+  .nav-soon { margin-left: auto; font-size: 9px; background: rgba(255,255,255,0.12); padding: 1px 6px; border-radius: 8px; }
+  .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; display: flex; justify-content: flex-end; }
+  .drawer { background: #fff; width: 100%; max-width: 480px; height: 100vh; overflow-y: auto; box-shadow: -8px 0 32px rgba(0,0,0,0.14); animation: drawer-in 0.2s ease-out; }
+  @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .drawer-header { padding: 18px 22px; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 2; }
+  .drawer-title { font-size: 15px; font-weight: 700; color: #1F2937; }
+  .drawer-close { background: none; border: none; cursor: pointer; color: #9CA3AF; font-size: 20px; line-height: 1; padding: 4px; }
+  .drawer-close:hover { color: #374151; }
+  .drawer-body { padding: 18px 22px; }
+  .drawer-section { margin-bottom: 20px; }
+  .drawer-section-title { font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .composition-tip { position: relative; cursor: help; border-bottom: 1px dotted #9CA3AF; }
+  .composition-tip:hover .composition-tip-box { display: block; }
+  .composition-tip-box { display: none; position: absolute; top: 100%; left: 0; z-index: 30; background: #1F2937; color: #fff; font-size: 11px; padding: 8px 10px; border-radius: 6px; white-space: nowrap; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  .channel-menu { position: absolute; background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.14); z-index: 40; min-width: 160px; overflow: hidden; }
+  .channel-item { padding: 9px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #1F2937; }
+  .channel-item:hover { background: #F3F4F6; }
+  .channel-item.disabled { color: #C0C5CC; cursor: not-allowed; }
+  .channel-item.disabled:hover { background: none; }
 `;
 
 // ============================================================
@@ -638,7 +653,31 @@ function CRMApp() {
   const [page, setPage] = useState("dashboard");
   const [selectedClient, setSelectedClient] = useState(null);
   const [newWarranties, setNewWarranties] = useState(0);
+  const [pendingReviews, setPendingReviews] = useState(0);
   const t = T[lang];
+
+  // Счётчик отзывов на модерации + Realtime
+  useEffect(() => {
+    async function fetchPendingReviews() {
+      const { count } = await supabase
+        .from("shop_reviews")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      setPendingReviews(count || 0);
+    }
+    fetchPendingReviews();
+    const channel = supabase
+      .channel("shop_reviews-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shop_reviews" }, () => {
+        fetchPendingReviews();
+      })
+      .subscribe();
+    const interval = setInterval(fetchPendingReviews, 30000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Загружаем счётчик и подписываемся на Realtime
   useEffect(() => {
@@ -683,7 +722,7 @@ function CRMApp() {
     <>
       <style>{styles}</style>
       <div className="crm-root">
-        <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} />
+        <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} />
         <div className="main">
           {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
           {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
@@ -691,10 +730,14 @@ function CRMApp() {
           {page === "orders" && <Orders t={t} lang={lang} />}
           {page === "products" && <Products t={t} lang={lang} />}
           {page === "warranties" && <Warranties t={t} />}
+          {page === "staff" && <Staff t={t} />}
+          {page === "shop_orders" && <ShopOrders />}
+          {page === "shop_products" && <ComingSoon title="Товары магазина" />}
           {page === "reviews" && <Reviews t={t} />}
           {page === "discounts" && <Discounts t={t} />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
-          {page === "staff" && <Staff t={t} />}
+          {page === "shop_customers" && <ComingSoon title="Покупатели" />}
+          {page === "shop_analytics" && <ComingSoon title="Аналитика магазина" />}
         </div>
       </div>
     </>
@@ -712,17 +755,23 @@ export default function App() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
-  const navItems = [
+function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews }) {
+  const coreItems = [
     { key: "dashboard", label: t.dashboard },
     { key: "clients", label: t.clients },
     { key: "orders", label: t.orders },
     { key: "products", label: t.products },
     { key: "warranties", label: t.warranties },
-    { key: "reviews", label: t.reviews },
+    { key: "staff", label: t.staff },
+  ];
+  const shopItems = [
+    { key: "shop_orders", label: "Заказы магазина" },
+    { key: "shop_products", label: "Товары магазина", soon: true },
+    { key: "reviews", label: t.reviews, badge: pendingReviews },
     { key: "discounts", label: t.discounts },
     { key: "loyalty", label: t.loyalty },
-    { key: "staff", label: t.staff },
+    { key: "shop_customers", label: "Покупатели", soon: true },
+    { key: "shop_analytics", label: "Аналитика магазина", soon: true },
   ];
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -733,7 +782,23 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
     staff: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
     discounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
     loyalty: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+    reviews: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+    shop_orders: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+    shop_products: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
+    shop_customers: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+    shop_analytics: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   };
+  const renderItem = (item) => (
+    <div key={item.key}
+      className={`nav-item ${item.soon ? "disabled" : ""} ${page === item.key || (page === "client_detail" && item.key === "clients") ? "active" : ""}`}
+      onClick={() => !item.soon && setPage(item.key)}>
+      <span className="nav-icon">{icons[item.key]}</span>
+      <span>{item.label}</span>
+      {item.key === "warranties" && newWarranties > 0 && <span className="nav-badge">{newWarranties}</span>}
+      {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+      {item.soon && <span className="nav-soon">Скоро</span>}
+    </div>
+  );
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
@@ -741,16 +806,9 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
         <p>система управления</p>
       </div>
       <nav className="sidebar-nav">
-        {navItems.map(item => (
-          <div key={item.key} className={`nav-item ${page === item.key || (page === "client_detail" && item.key === "clients") ? "active" : ""}`}
-            onClick={() => setPage(item.key)}>
-            <span className="nav-icon">{icons[item.key]}</span>
-            <span>{item.label}</span>
-            {item.key === "warranties" && newWarranties > 0 && (
-              <span className="nav-badge">{newWarranties}</span>
-            )}
-          </div>
-        ))}
+        {coreItems.map(renderItem)}
+        <div className="nav-section-label">Магазин</div>
+        {shopItems.map(renderItem)}
       </nav>
       <div className="sidebar-bottom">
         <div className="lang-switcher">
@@ -760,6 +818,17 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties }) {
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ComingSoon({ title }) {
+  return (
+    <div>
+      <div className="topbar"><span className="topbar-title">{title}</span></div>
+      <div className="content">
+        <div className="card"><div className="empty-state">Раздел «{title}» появится на одном из следующих этапов</div></div>
       </div>
     </div>
   );

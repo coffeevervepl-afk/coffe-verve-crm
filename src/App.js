@@ -677,6 +677,22 @@ function PassportPage({ token }) {
 
 
 // ============================================================
+// PERMISSIONS
+// ============================================================
+// "staff" (Сотрудники) is intentionally never delegable — always owner-only,
+// regardless of what's in permissions.modules.
+const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics"];
+
+function canSeeModule(currentUser, key) {
+  if (!currentUser) return false;
+  if (key === "staff") return currentUser.role === "owner";
+  if (currentUser.role === "owner") return true;
+  const modules = currentUser.permissions?.modules || [];
+  if (modules.includes("all")) return true;
+  return modules.includes(key);
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 function CRMApp({ session }) {
@@ -694,6 +710,18 @@ function CRMApp({ session }) {
     supabase.from("users").select("*").eq("id", session.user.id).maybeSingle()
       .then(({ data }) => { setCurrentUser(data); setUserLoaded(true); });
   }, [session.user.id]);
+
+  // Дашборд показывает выручку/статистику — не каждому сотруднику это положено,
+  // поэтому это обычный модуль в permissions, не открыт всем по умолчанию.
+  // Если у сотрудника нет доступа к дефолтной странице "dashboard", отправляем
+  // его на первый разрешённый раздел.
+  useEffect(() => {
+    if (!userLoaded || !currentUser) return;
+    if (!canSeeModule(currentUser, "dashboard")) {
+      const firstAllowed = MODULE_ORDER.find(key => canSeeModule(currentUser, key));
+      setPage(firstAllowed || "no_access");
+    }
+  }, [userLoaded, currentUser]); // eslint-disable-line
 
   function openShopOrder(orderId) {
     setOpenShopOrderId(orderId);
@@ -779,7 +807,10 @@ function CRMApp({ session }) {
         <div className="global-header">
           <UserMenu currentUser={currentUser} onSignOut={signOut} />
         </div>
-        {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
+        {page === "dashboard" && canSeeModule(currentUser, "dashboard") && <Dashboard t={t} setPage={setPage} />}
+        {page === "no_access" && (
+          <div className="content"><div className="card"><div className="empty-state">Нет доступных разделов. Обратитесь к владельцу CRM.</div></div></div>
+        )}
         {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
         {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
         {page === "orders" && <Orders t={t} lang={lang} />}
@@ -849,13 +880,8 @@ function AuthGate() {
 // SIDEBAR
 // ============================================================
 function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser }) {
-  const isOwner = currentUser?.role === "owner";
-  const modules = currentUser?.permissions?.modules || [];
   function canSee(key) {
-    if (key === "dashboard") return true;
-    if (key === "staff") return isOwner;
-    if (isOwner || modules.includes("all")) return true;
-    return modules.includes(key);
+    return canSeeModule(currentUser, key);
   }
 
   const coreItems = [
@@ -2334,7 +2360,7 @@ function Warranties({ t }) {
 // STAFF
 // ============================================================
 const STAFF_MODULES = [
-  { key: "dashboard", label: "Дашборд", alwaysOn: true },
+  { key: "dashboard", label: "Дашборд" },
   { key: "clients", label: "Клиенты" },
   { key: "orders", label: "Заказы" },
   { key: "products", label: "Товары" },
@@ -2471,9 +2497,9 @@ function Staff({ t, currentUser }) {
               <label className="form-label">Доступные разделы</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {STAFF_MODULES.map(m => (
-                  <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: m.alwaysOn ? "#9CA3AF" : "#374151" }}>
-                    <input type="checkbox" checked={m.alwaysOn || inviteForm.modules.includes(m.key)} disabled={m.alwaysOn} onChange={() => toggleInviteModule(m.key)} />
-                    {m.label}{m.alwaysOn ? " (всегда доступен)" : ""}
+                  <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+                    <input type="checkbox" checked={inviteForm.modules.includes(m.key)} onChange={() => toggleInviteModule(m.key)} />
+                    {m.label}
                   </label>
                 ))}
               </div>
@@ -2519,9 +2545,9 @@ function PermissionsModal({ staffMember, onClose, onSave }) {
         <div className="modal-title">Права доступа — {staffMember.name}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 16 }}>
           {STAFF_MODULES.map(m => (
-            <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: m.alwaysOn ? "#9CA3AF" : "#374151" }}>
-              <input type="checkbox" checked={m.alwaysOn || modules.includes(m.key)} disabled={m.alwaysOn} onChange={() => toggle(m.key)} />
-              {m.label}{m.alwaysOn ? " (всегда доступен)" : ""}
+            <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+              <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggle(m.key)} />
+              {m.label}
             </label>
           ))}
         </div>

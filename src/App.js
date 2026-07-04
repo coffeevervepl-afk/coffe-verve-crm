@@ -7,6 +7,8 @@ import ShopReviews from "./modules/shop/ShopReviews";
 import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 import ShopCustomers from "./modules/shop/ShopCustomers";
 import ShopAnalytics from "./modules/shop/ShopAnalytics";
+import Login from "./modules/auth/Login";
+import SetPassword from "./modules/auth/SetPassword";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -671,18 +673,29 @@ function PassportPage({ token }) {
 // ============================================================
 // MAIN APP
 // ============================================================
-function CRMApp() {
+function CRMApp({ session }) {
   const [lang, setLang] = useState("ru");
   const [page, setPage] = useState("dashboard");
   const [selectedClient, setSelectedClient] = useState(null);
   const [newWarranties, setNewWarranties] = useState(0);
   const [pendingReviews, setPendingReviews] = useState(0);
   const [openShopOrderId, setOpenShopOrderId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userLoaded, setUserLoaded] = useState(false);
   const t = T[lang];
+
+  useEffect(() => {
+    supabase.from("users").select("*").eq("id", session.user.id).maybeSingle()
+      .then(({ data }) => { setCurrentUser(data); setUserLoaded(true); });
+  }, [session.user.id]);
 
   function openShopOrder(orderId) {
     setOpenShopOrderId(orderId);
     setPage("shop_orders");
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
   }
 
   // Счётчик отзывов на модерации + Realtime
@@ -747,29 +760,28 @@ function CRMApp() {
     }
   }, [page]);
 
+  if (!userLoaded) return <div style={{ minHeight: "100vh", background: "#F4F5F7" }} />;
+
   return (
-    <>
-      <style>{styles}</style>
-      <div className="crm-root">
-        <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} />
-        <div className="main">
-          {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
-          {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
-          {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
-          {page === "orders" && <Orders t={t} lang={lang} />}
-          {page === "products" && <Products t={t} lang={lang} />}
-          {page === "warranties" && <Warranties t={t} />}
-          {page === "staff" && <Staff t={t} />}
-          {page === "shop_orders" && <ShopOrders openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
-          {page === "shop_products" && <ShopProducts />}
-          {page === "reviews" && <ShopReviews />}
-          {page === "discounts" && <ShopPromoCodes />}
-          {page === "loyalty" && <LoyaltyAdmin t={t} />}
-          {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
-          {page === "shop_analytics" && <ShopAnalytics />}
-        </div>
+    <div className="crm-root">
+      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} currentUser={currentUser} onSignOut={signOut} />
+      <div className="main">
+        {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
+        {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
+        {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
+        {page === "orders" && <Orders t={t} lang={lang} />}
+        {page === "products" && <Products t={t} lang={lang} />}
+        {page === "warranties" && <Warranties t={t} />}
+        {page === "staff" && <Staff t={t} currentUser={currentUser} />}
+        {page === "shop_orders" && <ShopOrders openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
+        {page === "shop_products" && <ShopProducts />}
+        {page === "reviews" && <ShopReviews />}
+        {page === "discounts" && <ShopPromoCodes />}
+        {page === "loyalty" && <LoyaltyAdmin t={t} />}
+        {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
+        {page === "shop_analytics" && <ShopAnalytics />}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -778,13 +790,48 @@ export default function App() {
   if (passportMatch) {
     return <PassportPage token={passportMatch[1]} />;
   }
-  return <CRMApp />;
+  if (window.location.pathname === "/set-password") {
+    return <><style>{styles}</style><SetPassword /></>;
+  }
+  return <AuthGate />;
+}
+
+function AuthGate() {
+  const [session, setSession] = useState(undefined); // undefined = still checking
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  return (
+    <>
+      <style>{styles}</style>
+      {session === undefined ? (
+        <div style={{ minHeight: "100vh", background: "#F4F5F7" }} />
+      ) : session ? (
+        <CRMApp session={session} />
+      ) : (
+        <Login />
+      )}
+    </>
+  );
 }
 
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews }) {
+function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser, onSignOut }) {
+  const isOwner = currentUser?.role === "owner";
+  const modules = currentUser?.permissions?.modules || [];
+  function canSee(key) {
+    if (key === "dashboard") return true;
+    if (key === "staff") return isOwner;
+    if (isOwner || modules.includes("all")) return true;
+    return modules.includes(key);
+  }
+
   const coreItems = [
     { key: "dashboard", label: t.dashboard },
     { key: "clients", label: t.clients },
@@ -792,7 +839,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "products", label: t.products },
     { key: "warranties", label: t.warranties },
     { key: "staff", label: t.staff },
-  ];
+  ].filter(item => canSee(item.key));
   const shopItems = [
     { key: "shop_orders", label: "Заказы магазина" },
     { key: "shop_products", label: "Товары магазина" },
@@ -801,7 +848,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "loyalty", label: t.loyalty },
     { key: "shop_customers", label: "Покупатели" },
     { key: "shop_analytics", label: "Аналитика магазина" },
-  ];
+  ].filter(item => canSee(item.key));
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
     clients: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
@@ -847,6 +894,16 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
             </button>
           ))}
         </div>
+        {currentUser && (
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={currentUser.email}>
+              {currentUser.name || currentUser.email}
+            </span>
+            <button onClick={onSignOut} title="Выйти" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2, flexShrink: 0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2175,31 +2232,91 @@ function Warranties({ t }) {
 // ============================================================
 // STAFF
 // ============================================================
-function Staff({ t }) {
+const STAFF_MODULES = [
+  { key: "clients", label: "Клиенты" },
+  { key: "orders", label: "Заказы" },
+  { key: "products", label: "Товары" },
+  { key: "warranties", label: "Гарантии" },
+  { key: "shop_orders", label: "Заказы магазина" },
+  { key: "shop_products", label: "Товары магазина" },
+  { key: "reviews", label: "Отзывы" },
+  { key: "discounts", label: "Промокоды" },
+  { key: "loyalty", label: "Лояльность" },
+  { key: "shop_customers", label: "Покупатели" },
+  { key: "shop_analytics", label: "Аналитика магазина" },
+];
+
+async function callStaffAdmin(action, payload) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch("https://dedxdwxqnmizupebaasx.supabase.co/functions/v1/staff-admin", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": "sb_publishable_sgDkHJatPTMNiIchve_LAA_5T_JUF33",
+      "Authorization": `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  return res.json();
+}
+
+function Staff({ t, currentUser }) {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "employee" });
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", modules: [] });
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [editingPerms, setEditingPerms] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("users").select("*").order("created_at");
+    const { data, error } = await supabase.from("users").select("*").order("created_at");
+    if (error) showToast("Ошибка загрузки: " + error.message);
     setStaff(data || []);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
-  async function saveStaff() {
-    if (!form.name || !form.email) return;
-    await supabase.from("users").insert([form]);
-    setShowModal(false);
-    setForm({ name: "", email: "", role: "employee" });
+  function toggleInviteModule(key) {
+    setInviteForm(f => ({ ...f, modules: f.modules.includes(key) ? f.modules.filter(m => m !== key) : [...f.modules, key] }));
+  }
+
+  async function sendInvite() {
+    if (!inviteForm.name.trim() || !inviteForm.email.trim()) return;
+    setInviting(true);
+    setInviteError("");
+    const result = await callStaffAdmin("invite", {
+      name: inviteForm.name.trim(),
+      email: inviteForm.email.trim(),
+      permissions: { modules: inviteForm.modules },
+      redirectTo: window.location.origin + "/set-password",
+    });
+    setInviting(false);
+    if (result.error) { setInviteError(result.error); return; }
+    setShowInvite(false);
+    setInviteForm({ name: "", email: "", modules: [] });
     fetchStaff();
   }
 
   async function deleteStaff(id) {
-    await supabase.from("users").delete().eq("id", id);
+    if (!window.confirm("Удалить сотрудника? Он потеряет доступ к CRM.")) return;
+    const result = await callStaffAdmin("delete", { id });
+    if (result.error) { showToast("Не удалось удалить: " + result.error); return; }
+    fetchStaff();
+  }
+
+  async function savePermissions(id, modules) {
+    const { error } = await supabase.from("users").update({ permissions: { modules } }).eq("id", id);
+    if (error) { showToast("Не удалось сохранить права: " + error.message); return; }
+    setEditingPerms(null);
     fetchStaff();
   }
 
@@ -2207,21 +2324,33 @@ function Staff({ t }) {
     <div>
       <div className="topbar">
         <span className="topbar-title">{t.staff}</span>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t.add}</button>
+        <button className="btn btn-primary" onClick={() => setShowInvite(true)}>+ Пригласить</button>
       </div>
       <div className="content">
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
-              <thead><tr><th>{t.name}</th><th>{t.email}</th><th>{t.role}</th><th>{t.date}</th><th></th></tr></thead>
+              <thead><tr><th>{t.name}</th><th>{t.email}</th><th>{t.role}</th><th>Доступ</th><th>{t.date}</th><th></th></tr></thead>
               <tbody>
-                {staff.length === 0 ? <tr><td colSpan={5} className="empty-state">{t.no_data}</td></tr> : staff.map(s => (
+                {staff.length === 0 ? <tr><td colSpan={6} className="empty-state">{t.no_data}</td></tr> : staff.map(s => (
                   <tr key={s.id}>
                     <td style={{ fontWeight: 500 }}>{s.name}</td>
                     <td style={{ color: "#6B7280" }}>{s.email}</td>
                     <td><span className="badge" style={{ background: s.role === "owner" ? "#DCFCE7" : "#F3F4F6", color: s.role === "owner" ? "#16A34A" : "#6B7280" }}>{s.role === "owner" ? t.owner : t.employee}</span></td>
+                    <td style={{ fontSize: 12, color: "#6B7280" }}>
+                      {s.role === "owner" ? "Все разделы" : (s.permissions?.modules?.length ? s.permissions.modules.length + " раздела(ов)" : "Нет доступа")}
+                      {s.role !== "owner" && (
+                        <button className="action-icon-btn" title="Изменить права" onClick={() => setEditingPerms(s)} style={{ marginLeft: 6 }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      )}
+                    </td>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(s.created_at)}</td>
-                    <td><button className="btn btn-danger btn-sm" onClick={() => deleteStaff(s.id)}>{t.delete}</button></td>
+                    <td>
+                      {s.id !== currentUser?.id && (
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteStaff(s.id)}>{t.delete}</button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -2229,24 +2358,76 @@ function Staff({ t }) {
           </div>
         )}
       </div>
-      {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+
+      {showInvite && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowInvite(false)}>
           <div className="modal">
-            <div className="modal-title">{t.add} {t.staff}</div>
-            <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">{t.email} *</label><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">{t.role}</label>
-              <select className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="owner">{t.owner}</option><option value="employee">{t.employee}</option>
-              </select>
+            <div className="modal-title">Пригласить сотрудника</div>
+            <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">{t.email} *</label><input className="input" type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} /></div>
+            <div className="form-group">
+              <label className="form-label">Доступные разделы</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                {STAFF_MODULES.map(m => (
+                  <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+                    <input type="checkbox" checked={inviteForm.modules.includes(m.key)} onChange={() => toggleInviteModule(m.key)} />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
             </div>
+            {inviteError && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>{inviteError}</div>}
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
-              <button className="btn btn-primary" onClick={saveStaff}>{t.save}</button>
+              <button className="btn btn-secondary" onClick={() => setShowInvite(false)}>{t.cancel}</button>
+              <button className="btn btn-primary" disabled={inviting} onClick={sendInvite}>{inviting ? "…" : "Отправить приглашение"}</button>
             </div>
           </div>
         </div>
       )}
+
+      {editingPerms && (
+        <PermissionsModal
+          staffMember={editingPerms}
+          onClose={() => setEditingPerms(null)}
+          onSave={savePermissions}
+        />
+      )}
+      {toast && <div className="print-toast">{toast}</div>}
+    </div>
+  );
+}
+
+function PermissionsModal({ staffMember, onClose, onSave }) {
+  const [modules, setModules] = useState(staffMember.permissions?.modules || []);
+  const [saving, setSaving] = useState(false);
+
+  function toggle(key) {
+    setModules(m => m.includes(key) ? m.filter(x => x !== key) : [...m, key]);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(staffMember.id, modules);
+    setSaving(false);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">Права доступа — {staffMember.name}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 16 }}>
+          {STAFF_MODULES.map(m => (
+            <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+              <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggle(m.key)} />
+              {m.label}
+            </label>
+          ))}
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : "Сохранить"}</button>
+        </div>
+      </div>
     </div>
   );
 }

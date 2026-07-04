@@ -85,7 +85,7 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
     if (found) setSelected(found);
     else showToast("Заказ не найден");
     onOpenOrderHandled?.();
-  }, [openOrderId, orders]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [openOrderId, orders]); // eslint-disable-line
 
   async function changeStatus(id, status) {
     const { error } = await supabase.from("shop_orders").update({ status }).eq("id", id);

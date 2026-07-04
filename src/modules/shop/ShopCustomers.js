@@ -42,6 +42,9 @@ export default function ShopCustomers() {
       supabase.from("loyalty_config").select("key, value"),
     ]);
     if (usersRes.error) showToast("Ошибка загрузки покупателей: " + usersRes.error.message);
+    if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
+    if (cartsRes.error) showToast("Ошибка загрузки корзин: " + cartsRes.error.message);
+    if (cfgRes.error) showToast("Ошибка загрузки конфигурации лояльности: " + cfgRes.error.message);
 
     const counts = {};
     (ordersRes.data || []).forEach(o => {

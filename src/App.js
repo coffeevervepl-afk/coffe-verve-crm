@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabaseClient";
 import ShopOrders from "./modules/shop/ShopOrders";
 import ShopProducts from "./modules/shop/ShopProducts";
 import ShopReviews from "./modules/shop/ShopReviews";
+import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -754,7 +755,7 @@ function CRMApp() {
           {page === "shop_orders" && <ShopOrders />}
           {page === "shop_products" && <ShopProducts />}
           {page === "reviews" && <ShopReviews />}
-          {page === "discounts" && <Discounts t={t} />}
+          {page === "discounts" && <ShopPromoCodes />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
           {page === "shop_customers" && <ComingSoon title="Покупатели" />}
           {page === "shop_analytics" && <ComingSoon title="Аналитика магазина" />}
@@ -788,7 +789,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "shop_orders", label: "Заказы магазина" },
     { key: "shop_products", label: "Товары магазина" },
     { key: "reviews", label: t.reviews, badge: pendingReviews },
-    { key: "discounts", label: t.discounts },
+    { key: "discounts", label: "Промокоды" },
     { key: "loyalty", label: t.loyalty },
     { key: "shop_customers", label: "Покупатели", soon: true },
     { key: "shop_analytics", label: "Аналитика магазина", soon: true },
@@ -2245,226 +2246,6 @@ function Staff({ t }) {
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
               <button className="btn btn-primary" onClick={saveStaff}>{t.save}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// DISCOUNTS — управление промокодами
-// ============================================================
-function Discounts({ t }) {
-  const [promos, setPromos]       = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [form, setForm] = useState({
-    code: "", type: "fixed", value: 15, min_order: 0,
-    valid_until: "", max_uses: 1, one_per_customer: true, category: "manual",
-  });
-
-  useEffect(() => { loadPromos(); }, []);
-
-  async function loadPromos() {
-    setLoading(true);
-    const { data } = await supabase
-      .from("shop_promo_codes")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setPromos(data || []);
-    setLoading(false);
-  }
-
-  function generateCode() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const rnd = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-    setForm(f => ({ ...f, code: "CV-" + rnd }));
-  }
-
-  async function savePromo() {
-    if (!form.code.trim() || !form.value) return;
-    setSaving(true);
-    await supabase.from("shop_promo_codes").insert({
-      code:             form.code.trim().toUpperCase(),
-      type:             form.type,
-      value:            Number(form.value),
-      min_order:        Number(form.min_order) || 0,
-      valid_until:      form.valid_until || null,
-      max_uses:         form.max_uses ? Number(form.max_uses) : null,
-      used_count:       0,
-      one_per_customer: form.one_per_customer,
-      category:         form.category,
-      is_active:        true,
-    });
-    setSaving(false);
-    setShowModal(false);
-    setForm({ code: "", type: "fixed", value: 15, min_order: 0, valid_until: "", max_uses: 1, one_per_customer: true, category: "manual" });
-    loadPromos();
-  }
-
-  async function toggleActive(promo) {
-    await supabase.from("shop_promo_codes").update({ is_active: !promo.is_active }).eq("id", promo.id);
-    setPromos(prev => prev.map(p => p.id === promo.id ? { ...p, is_active: !p.is_active } : p));
-  }
-
-  async function deletePromo(id) {
-    if (!window.confirm("Удалить промокод?")) return;
-    await supabase.from("shop_promo_codes").delete().eq("id", id);
-    setPromos(prev => prev.filter(p => p.id !== id));
-  }
-
-  const CATEGORY_COLORS = {
-    welcome:  { background: "#DCFCE7", color: "#15803D" },
-    referral: { background: "#FEF3C7", color: "#92400E" },
-    birthday: { background: "#FCE7F3", color: "#9D174D" },
-    review:   { background: "#EFF6FF", color: "#1D4ED8" },
-    manual:   { background: "#F3F4F6", color: "#374151" },
-  };
-
-  return (
-    <div>
-      <div className="topbar">
-        <span className="topbar-title">{t.discounts}</span>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t.promo_create}</button>
-      </div>
-      <div className="content">
-        {loading ? <div className="empty-state">{t.loading}</div> : (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t.promo_code}</th>
-                  <th>{t.promo_category}</th>
-                  <th>{t.promo_type} / {t.promo_value}</th>
-                  <th>{t.promo_min_order}</th>
-                  <th>{t.promo_valid_until}</th>
-                  <th>{t.promo_used} / {t.promo_max_uses}</th>
-                  <th>{t.promo_one_per}</th>
-                  <th>{t.promo_active}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {promos.length === 0 && (
-                  <tr><td colSpan={9}><div className="empty-state">{t.no_data}</div></td></tr>
-                )}
-                {promos.map(p => (
-                  <tr key={p.id}>
-                    <td><span className="promo-tag">{p.code}</span></td>
-                    <td>
-                      <span className="badge" style={CATEGORY_COLORS[p.category] || CATEGORY_COLORS.manual}>
-                        {p.category}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 600, color: "#16A34A" }}>
-                      {p.type === "fixed" ? `−${p.value} zł` : `−${p.value}%`}
-                    </td>
-                    <td style={{ color: "#6B7280", fontSize: 12 }}>
-                      {p.min_order ? fmtMoney(p.min_order) : "—"}
-                    </td>
-                    <td style={{ color: "#6B7280", fontSize: 12 }}>
-                      {p.valid_until ? fmtDate(p.valid_until) : "∞"}
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      <span style={{ fontWeight: 600 }}>{p.used_count || 0}</span>
-                      <span style={{ color: "#9CA3AF" }}> / {p.max_uses ?? "∞"}</span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {p.one_per_customer ? "✓" : "—"}
-                    </td>
-                    <td>
-                      <label className="toggle-switch">
-                        <input type="checkbox" checked={!!p.is_active} onChange={() => toggleActive(p)} />
-                        <span className="toggle-slider" />
-                      </label>
-                    </td>
-                    <td>
-                      <button className="action-icon-btn danger" onClick={() => deletePromo(p.id)} title={t.delete}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
-            <div className="modal-title">{t.promo_create}</div>
-            <div className="form-group">
-              <label className="form-label">{t.promo_code}</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input className="input" style={{ flex: 1 }} value={form.code}
-                  onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                  placeholder="CV-XXXXXXXX" />
-                <button className="btn btn-secondary" onClick={generateCode}>{t.promo_generate}</button>
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">{t.promo_type}</label>
-                <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                  <option value="fixed">{t.promo_fixed}</option>
-                  <option value="percent">{t.promo_percent}</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.promo_value}</label>
-                <input className="input" type="number" min={1} value={form.value}
-                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">{t.promo_min_order} (zł)</label>
-                <input className="input" type="number" min={0} value={form.min_order}
-                  onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.promo_max_uses}</label>
-                <input className="input" type="number" min={1} value={form.max_uses}
-                  onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
-                  placeholder="∞" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">{t.promo_valid_until}</label>
-                <input className="input" type="date" value={form.valid_until}
-                  onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.promo_category}</label>
-                <select className="input" value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {["manual","welcome","referral","birthday","review"].map(c =>
-                    <option key={c} value={c}>{c}</option>
-                  )}
-                </select>
-              </div>
-            </div>
-            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={form.one_per_customer}
-                  onChange={e => setForm(f => ({ ...f, one_per_customer: e.target.checked }))} />
-                <span className="toggle-slider" />
-              </label>
-              <span style={{ fontSize: 13, color: "#374151" }}>{t.promo_one_per}</span>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
-              <button className="btn btn-primary" onClick={savePromo} disabled={saving || !form.code.trim()}>
-                {saving ? "…" : t.save}
-              </button>
             </div>
           </div>
         </div>

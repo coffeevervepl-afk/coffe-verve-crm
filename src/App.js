@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { supabase } from "./lib/supabaseClient";
 import ShopOrders from "./modules/shop/ShopOrders";
 import ShopProducts from "./modules/shop/ShopProducts";
+import ShopReviews from "./modules/shop/ShopReviews";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -752,7 +753,7 @@ function CRMApp() {
           {page === "staff" && <Staff t={t} />}
           {page === "shop_orders" && <ShopOrders />}
           {page === "shop_products" && <ShopProducts />}
-          {page === "reviews" && <Reviews t={t} />}
+          {page === "reviews" && <ShopReviews />}
           {page === "discounts" && <Discounts t={t} />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
           {page === "shop_customers" && <ComingSoon title="Покупатели" />}
@@ -2241,150 +2242,6 @@ function Staff({ t }) {
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
               <button className="btn btn-primary" onClick={saveStaff}>{t.save}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// REVIEWS — модерация отзывов магазина
-// ============================================================
-function Reviews({ t }) {
-  const [reviews, setReviews]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState("all");
-  const [selected, setSelected] = useState(null);
-  const [response, setResponse] = useState("");
-  const [saving, setSaving]     = useState(false);
-
-  useEffect(() => { loadReviews(); }, [filter]); // eslint-disable-line
-
-  async function loadReviews() {
-    setLoading(true);
-    let q = supabase
-      .from("shop_reviews")
-      .select("*, shop_products(name_ru)")
-      .order("created_at", { ascending: false });
-    if (filter !== "all") q = q.eq("status", filter);
-    const { data } = await q;
-    setReviews(data || []);
-    setLoading(false);
-  }
-
-  function openModal(r) { setSelected(r); setResponse(r.moderator_response || ""); }
-
-  async function moderate(status) {
-    if (!selected) return;
-    setSaving(true);
-    await supabase.from("shop_reviews").update({
-      status,
-      moderator_response: response.trim() || null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", selected.id);
-    setReviews(prev => prev.map(r => r.id === selected.id
-      ? { ...r, status, moderator_response: response.trim() || null } : r));
-    setSaving(false);
-    setSelected(null);
-  }
-
-  const stars = (n) => "★".repeat(n) + "☆".repeat(5 - n);
-  const STATUS_STYLE = {
-    pending:  { background: "#FEF3C7", color: "#D97706" },
-    approved: { background: "#DCFCE7", color: "#16A34A" },
-    rejected: { background: "#FEE2E2", color: "#DC2626" },
-  };
-  const STATUS_LABEL = {
-    pending: t.review_pending, approved: t.review_approved, rejected: t.review_rejected
-  };
-
-  return (
-    <div>
-      <div className="topbar"><span className="topbar-title">{t.reviews}</span></div>
-      <div className="content">
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          {["all", "pending", "approved", "rejected"].map(f => (
-            <button key={f} className={"btn " + (filter === f ? "btn-primary" : "btn-secondary")}
-              style={{ fontSize: 13, padding: "5px 14px" }} onClick={() => setFilter(f)}>
-              {f === "all" ? t.review_all : STATUS_LABEL[f]}
-            </button>
-          ))}
-        </div>
-        {loading ? <div className="empty-state">{t.loading}</div>
-          : reviews.length === 0 ? <div className="card"><div className="empty-state">{t.no_data}</div></div>
-          : (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t.review_product}</th><th>{t.review_author}</th>
-                  <th>{t.review_rating}</th><th>{t.review_text}</th>
-                  <th>{t.status}</th><th>{t.date}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reviews.map(r => (
-                  <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => openModal(r)}>
-                    <td style={{ fontWeight: 500 }}>{r.shop_products ? r.shop_products.name_ru : "—"}</td>
-                    <td>{r.author_name}</td>
-                    <td style={{ color: "#F59E0B", fontSize: 16 }}>{stars(r.rating)}</td>
-                    <td style={{ color: "#6B7280", fontSize: 12, maxWidth: 200 }}>
-                      {r.review_text.slice(0, 80)}{r.review_text.length > 80 ? "…" : ""}
-                    </td>
-                    <td><span className="badge" style={STATUS_STYLE[r.status] || {}}>{STATUS_LABEL[r.status] || r.status}</span></td>
-                    <td style={{ color: "#6B7280", fontSize: 12 }}>{fmtDate(r.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {selected && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal" style={{ maxWidth: 540 }}>
-            <div className="modal-title">
-              {t.reviews} {selected.shop_products ? "— " + selected.shop_products.name_ru : ""}
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#2C1810",
-                  color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 700, fontSize: 16 }}>
-                  {selected.author_name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{selected.author_name}</div>
-                  <div style={{ color: "#6B7280", fontSize: 12 }}>{fmtDate(selected.created_at)}</div>
-                </div>
-                <div style={{ marginLeft: "auto", color: "#F59E0B", fontSize: 22 }}>{stars(selected.rating)}</div>
-              </div>
-              <p style={{ color: "#374151", fontSize: 14, lineHeight: 1.6,
-                background: "#F9FAFB", padding: "10px 14px", borderRadius: 10, margin: 0 }}>
-                {selected.review_text}
-              </p>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t.review_response}</label>
-              <textarea className="input" rows={3} style={{ resize: "vertical" }}
-                value={response} onChange={e => setResponse(e.target.value)}
-                placeholder="Ответ будет виден покупателям на сайте" />
-            </div>
-            <div className="modal-actions" style={{ justifyContent: "space-between" }}>
-              <button className="btn btn-secondary" onClick={() => setSelected(null)}>{t.close}</button>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn" disabled={saving} onClick={() => moderate("rejected")}
-                  style={{ background: "#FEE2E2", color: "#DC2626", border: "none" }}>
-                  {t.review_reject}
-                </button>
-                <button className="btn btn-primary" disabled={saving}
-                  onClick={() => moderate("approved")} style={{ background: "#16A34A" }}>
-                  {saving ? "…" : t.review_approve}
-                </button>
-              </div>
             </div>
           </div>
         </div>

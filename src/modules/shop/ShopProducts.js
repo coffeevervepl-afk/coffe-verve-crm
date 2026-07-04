@@ -338,7 +338,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
   async function uploadImages(files) {
     setUploading(true);
     const uploaded = [];
-    const failed = [];
+    const failures = [];
     for (const file of Array.from(files)) {
       const path = `products/${form.slug || product.id}/${Date.now()}-${file.name}`;
       const { error } = await supabase.storage.from("shop").upload(path, file);
@@ -346,17 +346,29 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
         const { data } = supabase.storage.from("shop").getPublicUrl(path);
         uploaded.push(data.publicUrl);
       } else {
-        failed.push(file.name);
+        failures.push(`${file.name}: ${error.message}`);
       }
     }
     setUploading(false);
-    if (failed.length) onError(`Не удалось загрузить: ${failed.join(", ")}`);
+    if (failures.length) onError("Ошибка загрузки фото — " + failures.join("; "));
     if (uploaded.length) await saveFields({ images: [...(form.images || []), ...uploaded] });
   }
 
-  function removeImage(idx) {
+  function storagePathFromUrl(url) {
+    const marker = "/object/public/shop/";
+    const idx = url.indexOf(marker);
+    return idx === -1 ? null : url.slice(idx + marker.length);
+  }
+
+  async function removeImage(idx) {
+    const img = (form.images || [])[idx];
     const next = (form.images || []).filter((_, i) => i !== idx);
-    saveFields({ images: next });
+    await saveFields({ images: next });
+    const path = img && storagePathFromUrl(img);
+    if (path) {
+      const { error } = await supabase.storage.from("shop").remove([path]);
+      if (error) onError("Фото убрано из товара, но не удалилось из хранилища: " + error.message);
+    }
   }
 
   function onImgDragStart(idx) { dragImgIndex.current = idx; }

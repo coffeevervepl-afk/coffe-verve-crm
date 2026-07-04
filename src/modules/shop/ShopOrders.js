@@ -231,6 +231,7 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
     setSavingTracking(false);
     if (error) { onError("Не удалось сохранить трек-номер: " + error.message); return; }
     onUpdated({ id: order.id, tracking_number: tracking || null });
+    onError("Трек-номер сохранён");
   }
 
   async function changeStatus(status) {
@@ -255,6 +256,7 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
     }
     onUpdated({ id: order.id, payment_status: "refunded" });
     setRefunding(false);
+    onError("Возврат оформлен");
   }
 
   const addr = order.delivery_address || {};

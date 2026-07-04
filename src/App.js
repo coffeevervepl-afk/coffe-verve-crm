@@ -240,6 +240,12 @@ const styles = `
   .lang-btn { padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: rgba(255,255,255,0.6); font-size: 10px; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
   .lang-btn.active { background: #22C55E; color: #fff; border-color: #22C55E; font-weight: 600; }
   .main { margin-left: 220px; min-height: 100vh; padding: 0; background: #F4F5F7; }
+  .global-header { padding: 8px 28px; border-bottom: 1px solid #E0E4EA; display: flex; align-items: center; justify-content: flex-end; background: #fff; position: sticky; top: 0; z-index: 60; }
+  .user-menu-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 8px; font-family: 'Inter', sans-serif; }
+  .user-menu-btn:hover { background: #F3F4F6; }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: #2B58A1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .user-menu-name { font-size: 13px; color: #1F2937; font-weight: 500; text-align: left; line-height: 1.2; }
+  .user-menu-role { font-size: 11px; color: #9CA3AF; line-height: 1.2; }
   .topbar { padding: 14px 28px; border-bottom: 1px solid #E0E4EA; display: flex; align-items: center; justify-content: space-between; background: #fff; position: sticky; top: 0; z-index: 50; }
   .topbar-title { font-size: 17px; font-weight: 700; color: #1F2937; }
   .topbar-actions { display: flex; gap: 10px; align-items: center; }
@@ -768,8 +774,11 @@ function CRMApp({ session }) {
 
   return (
     <div className="crm-root">
-      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} currentUser={currentUser} onSignOut={signOut} />
+      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} currentUser={currentUser} />
       <div className="main">
+        <div className="global-header">
+          <UserMenu currentUser={currentUser} onSignOut={signOut} />
+        </div>
         {page === "dashboard" && <Dashboard t={t} setPage={setPage} />}
         {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
         {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
@@ -839,8 +848,7 @@ function AuthGate() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser, onSignOut }) {
-  const [showChangePw, setShowChangePw] = useState(false);
+function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser }) {
   const isOwner = currentUser?.role === "owner";
   const modules = currentUser?.permissions?.modules || [];
   function canSee(key) {
@@ -912,22 +920,44 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
             </button>
           ))}
         </div>
-        {currentUser && (
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={currentUser.email}>
-              {currentUser.name || currentUser.email}
-            </span>
-            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-              <button onClick={() => setShowChangePw(true)} title="Сменить пароль" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
-              </button>
-              <button onClick={onSignOut} title="Выйти" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              </button>
+      </div>
+    </div>
+  );
+}
+
+function UserMenu({ currentUser, onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
+
+  if (!currentUser) return null;
+  const initial = (currentUser.name || currentUser.email || "?").charAt(0).toUpperCase();
+  const roleLabel = currentUser.role === "owner" ? "Владелец" : "Сотрудник";
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button className="user-menu-btn" onClick={() => setOpen(o => !o)}>
+        <span className="user-avatar">{initial}</span>
+        <div>
+          <div className="user-menu-name">{currentUser.name || currentUser.email}</div>
+          <div className="user-menu-role">{roleLabel}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 39 }} onClick={() => setOpen(false)} />
+          <div className="channel-menu" style={{ top: "calc(100% + 4px)", right: 0 }}>
+            <div className="channel-item" onClick={() => { setShowChangePw(true); setOpen(false); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
+              Сменить пароль
+            </div>
+            <div className="channel-item" onClick={() => { setOpen(false); onSignOut(); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Выйти
             </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
     </div>
   );
@@ -2304,6 +2334,7 @@ function Warranties({ t }) {
 // STAFF
 // ============================================================
 const STAFF_MODULES = [
+  { key: "dashboard", label: "Дашборд", alwaysOn: true },
   { key: "clients", label: "Клиенты" },
   { key: "orders", label: "Заказы" },
   { key: "products", label: "Товары" },
@@ -2440,9 +2471,9 @@ function Staff({ t, currentUser }) {
               <label className="form-label">Доступные разделы</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {STAFF_MODULES.map(m => (
-                  <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
-                    <input type="checkbox" checked={inviteForm.modules.includes(m.key)} onChange={() => toggleInviteModule(m.key)} />
-                    {m.label}
+                  <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: m.alwaysOn ? "#9CA3AF" : "#374151" }}>
+                    <input type="checkbox" checked={m.alwaysOn || inviteForm.modules.includes(m.key)} disabled={m.alwaysOn} onChange={() => toggleInviteModule(m.key)} />
+                    {m.label}{m.alwaysOn ? " (всегда доступен)" : ""}
                   </label>
                 ))}
               </div>
@@ -2488,9 +2519,9 @@ function PermissionsModal({ staffMember, onClose, onSave }) {
         <div className="modal-title">Права доступа — {staffMember.name}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 16 }}>
           {STAFF_MODULES.map(m => (
-            <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
-              <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggle(m.key)} />
-              {m.label}
+            <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: m.alwaysOn ? "#9CA3AF" : "#374151" }}>
+              <input type="checkbox" checked={m.alwaysOn || modules.includes(m.key)} disabled={m.alwaysOn} onChange={() => toggle(m.key)} />
+              {m.label}{m.alwaysOn ? " (всегда доступен)" : ""}
             </label>
           ))}
         </div>

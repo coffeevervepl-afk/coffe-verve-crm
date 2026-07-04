@@ -798,10 +798,18 @@ export default function App() {
 
 function AuthGate() {
   const [session, setSession] = useState(undefined); // undefined = still checking
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    // Supabase fires PASSWORD_RECOVERY when the URL hash carries a recovery token,
+    // regardless of which path the email link's redirect actually landed on
+    // (e.g. if /set-password isn't in the project's Redirect URLs allowlist yet
+    // and GoTrue falls back to the Site URL) — so we don't rely on pathname here.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
+      setSession(s);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -810,6 +818,8 @@ function AuthGate() {
       <style>{styles}</style>
       {session === undefined ? (
         <div style={{ minHeight: "100vh", background: "#F4F5F7" }} />
+      ) : recoveryMode ? (
+        <SetPassword />
       ) : session ? (
         <CRMApp session={session} />
       ) : (
@@ -823,6 +833,7 @@ function AuthGate() {
 // SIDEBAR
 // ============================================================
 function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser, onSignOut }) {
+  const [showChangePw, setShowChangePw] = useState(false);
   const isOwner = currentUser?.role === "owner";
   const modules = currentUser?.permissions?.modules || [];
   function canSee(key) {
@@ -899,10 +910,63 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={currentUser.email}>
               {currentUser.name || currentUser.email}
             </span>
-            <button onClick={onSignOut} title="Выйти" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2, flexShrink: 0 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button onClick={() => setShowChangePw(true)} title="Сменить пароль" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
+              </button>
+              <button onClick={onSignOut} title="Выйти" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", cursor: "pointer", padding: 2 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
+            </div>
           </div>
+        )}
+      </div>
+      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+    </div>
+  );
+}
+
+function ChangePasswordModal({ onClose }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function handleSave() {
+    setError("");
+    if (password.length < 6) { setError("Пароль должен быть не короче 6 символов"); return; }
+    if (password !== confirm) { setError("Пароли не совпадают"); return; }
+    setSaving(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setSaving(false);
+    if (updateError) { setError(updateError.message); return; }
+    setDone(true);
+    setTimeout(onClose, 1200);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 360 }}>
+        <div className="modal-title">Сменить пароль</div>
+        {done ? (
+          <div style={{ color: "#16A34A", fontSize: 13 }}>Пароль обновлён</div>
+        ) : (
+          <>
+            <div className="form-group">
+              <label className="form-label">Новый пароль</label>
+              <input className="input" type="password" autoFocus value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Повторите пароль</label>
+              <input className="input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+            </div>
+            {error && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>{error}</div>}
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+              <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : "Сохранить"}</button>
+            </div>
+          </>
         )}
       </div>
     </div>

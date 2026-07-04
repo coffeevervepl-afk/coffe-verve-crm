@@ -61,25 +61,27 @@ export default function ShopOrders() {
   const [contactOrder, setContactOrder] = useState(null);
   const [toast, setToast] = useState(null);
 
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("shop_orders")
       .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total)")
       .order("created_at", { ascending: false });
+    if (error) showToast("Ошибка загрузки заказов: " + error.message);
     setOrders(data || []);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
-
   async function changeStatus(id, status) {
-    await supabase.from("shop_orders").update({ status }).eq("id", id);
+    const { error } = await supabase.from("shop_orders").update({ status }).eq("id", id);
+    if (error) { showToast("Не удалось сохранить статус: " + error.message); return; }
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
     setSelected(prev => prev && prev.id === id ? { ...prev, status } : prev);
   }
@@ -167,7 +169,7 @@ export default function ShopOrders() {
         )}
       </div>
       {selected && (
-        <OrderDrawer order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} />
+        <OrderDrawer order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} onError={showToast} />
       )}
       {contactOrder && <ContactModal order={contactOrder} onClose={() => setContactOrder(null)} />}
       {toast && <div className="print-toast">{toast}</div>}
@@ -206,7 +208,7 @@ function ContactModal({ order, onClose }) {
   );
 }
 
-function OrderDrawer({ order, onClose, onUpdated, onContact }) {
+function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
   const [tracking, setTracking] = useState(order.tracking_number || "");
   const [savingTracking, setSavingTracking] = useState(false);
   const [promo, setPromo] = useState(null);
@@ -215,33 +217,41 @@ function OrderDrawer({ order, onClose, onUpdated, onContact }) {
   useEffect(() => {
     let cancelled = false;
     supabase.from("promo_code_uses").select("*, shop_promo_codes(code)").eq("order_id", order.id).maybeSingle()
-      .then(({ data }) => { if (!cancelled) setPromo(data); });
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) onError("Ошибка загрузки промокода: " + error.message);
+        setPromo(data);
+      });
     return () => { cancelled = true; };
-  }, [order.id]);
+  }, [order.id, onError]);
 
   async function saveTracking() {
     setSavingTracking(true);
-    await supabase.from("shop_orders").update({ tracking_number: tracking || null }).eq("id", order.id);
-    onUpdated({ id: order.id, tracking_number: tracking || null });
+    const { error } = await supabase.from("shop_orders").update({ tracking_number: tracking || null }).eq("id", order.id);
     setSavingTracking(false);
+    if (error) { onError("Не удалось сохранить трек-номер: " + error.message); return; }
+    onUpdated({ id: order.id, tracking_number: tracking || null });
   }
 
   async function changeStatus(status) {
-    await supabase.from("shop_orders").update({ status }).eq("id", order.id);
+    const { error } = await supabase.from("shop_orders").update({ status }).eq("id", order.id);
+    if (error) { onError("Не удалось сохранить статус: " + error.message); return; }
     onUpdated({ id: order.id, status });
   }
 
   async function doRefund() {
     if (!window.confirm(`Оформить возврат по заказу №${order.order_number}?`)) return;
     setRefunding(true);
-    await supabase.from("shop_orders").update({ payment_status: "refunded" }).eq("id", order.id);
+    const { error } = await supabase.from("shop_orders").update({ payment_status: "refunded" }).eq("id", order.id);
+    if (error) { onError("Не удалось оформить возврат: " + error.message); setRefunding(false); return; }
     if (order.crm_order_id) {
-      await supabase.from("warranties").insert([{
+      const { error: wErr } = await supabase.from("warranties").insert([{
         order_id: order.crm_order_id,
         reason: `Возврат оформлен из заказа магазина №${order.order_number}`,
         resolution: "refund",
         status: "new",
       }]);
+      if (wErr) onError("Возврат оформлен, но запись в гарантии не создалась: " + wErr.message);
     }
     onUpdated({ id: order.id, payment_status: "refunded" });
     setRefunding(false);

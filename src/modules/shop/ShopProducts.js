@@ -42,19 +42,26 @@ export default function ShopProducts() {
   const [toast, setToast] = useState(null);
   const dragIndexRef = useRef(null);
 
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("shop_products").select("*").order("sort_order", { ascending: true });
+    const { data, error } = await supabase.from("shop_products").select("*").order("sort_order", { ascending: true });
+    if (error) showToast("Ошибка загрузки товаров: " + error.message);
     setProducts(data || []);
     setLoading(false);
   }, []);
 
   const fetchSold = useCallback(async () => {
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("shop_order_items")
       .select("shop_product_id, quantity, shop_orders!inner(created_at)")
       .gte("shop_orders.created_at", since);
+    if (error) { showToast("Ошибка загрузки продаж: " + error.message); return; }
     const map = {};
     (data || []).forEach(row => {
       if (!row.shop_product_id) return;
@@ -65,18 +72,14 @@ export default function ShopProducts() {
 
   useEffect(() => { fetchProducts(); fetchSold(); }, [fetchProducts, fetchSold]);
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
-
   function handleUpdated(updated) {
     setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
     setSelected(prev => prev && prev.id === updated.id ? { ...prev, ...updated } : prev);
   }
 
   async function saveField(id, field, value) {
-    await supabase.from("shop_products").update({ [field]: value }).eq("id", id);
+    const { error } = await supabase.from("shop_products").update({ [field]: value }).eq("id", id);
+    if (error) { showToast("Не удалось сохранить: " + error.message); return; }
     handleUpdated({ id, [field]: value });
   }
 
@@ -114,7 +117,9 @@ export default function ShopProducts() {
     reordered.splice(index, 0, moved);
     setProducts(reordered);
     dragIndexRef.current = null;
-    await Promise.all(reordered.map((p, i) => supabase.from("shop_products").update({ sort_order: i }).eq("id", p.id)));
+    const results = await Promise.all(reordered.map((p, i) => supabase.from("shop_products").update({ sort_order: i }).eq("id", p.id)));
+    const failed = results.find(r => r.error);
+    if (failed) showToast("Не удалось сохранить порядок: " + failed.error.message);
     reordered.forEach((p, i) => { p.sort_order = i; });
   }
 
@@ -199,12 +204,13 @@ export default function ShopProducts() {
           </div>
         )}
       </div>
-      {selected && <ProductDrawer product={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} />}
+      {selected && <ProductDrawer product={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onError={showToast} />}
       {showAddFromCrm && (
         <AddFromCrmModal
           existingIds={products.map(p => p.crm_product_id).filter(Boolean)}
           onClose={() => setShowAddFromCrm(false)}
           onCreated={(p) => { setShowAddFromCrm(false); fetchProducts(); setSelected(p); }}
+          onError={showToast}
         />
       )}
       {toast && <div className="print-toast">{toast}</div>}
@@ -212,21 +218,23 @@ export default function ShopProducts() {
   );
 }
 
-function AddFromCrmModal({ existingIds, onClose, onCreated }) {
+function AddFromCrmModal({ existingIds, onClose, onCreated, onError }) {
   const [crmProducts, setCrmProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creatingId, setCreatingId] = useState(null);
 
   useEffect(() => {
-    supabase.from("products").select("*").order("code").then(({ data }) => {
+    supabase.from("products").select("*").order("code").then(({ data, error }) => {
+      if (error) onError("Ошибка загрузки товаров CRM: " + error.message);
       setCrmProducts((data || []).filter(p => !existingIds.includes(p.id)));
       setLoading(false);
     });
-  }, [existingIds]);
+  }, [existingIds, onError]);
 
   async function addProduct(cp) {
     setCreatingId(cp.id);
-    const { data: last } = await supabase.from("shop_products").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+    const { data: last, error: lastError } = await supabase.from("shop_products").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+    if (lastError) { onError("Ошибка: " + lastError.message); setCreatingId(null); return; }
     const nextSortOrder = last?.[0] ? last[0].sort_order + 1 : 0;
     const slug = slugify(cp.name);
     const { data, error } = await supabase.from("shop_products").insert([{
@@ -247,7 +255,8 @@ function AddFromCrmModal({ existingIds, onClose, onCreated }) {
       sort_order: nextSortOrder,
     }]).select().single();
     setCreatingId(null);
-    if (!error && data) onCreated(data);
+    if (error) { onError("Не удалось добавить товар: " + error.message); return; }
+    if (data) onCreated(data);
   }
 
   return (
@@ -310,7 +319,7 @@ function NoteChips({ value, lang, onChange }) {
   );
 }
 
-function ProductDrawer({ product, onClose, onUpdated }) {
+function ProductDrawer({ product, onClose, onUpdated, onError }) {
   const [form, setForm] = useState(product);
   const [descTab, setDescTab] = useState("ru");
   const [uploading, setUploading] = useState(false);
@@ -321,22 +330,27 @@ function ProductDrawer({ product, onClose, onUpdated }) {
 
   async function saveFields(fields) {
     setForm(prev => ({ ...prev, ...fields }));
-    await supabase.from("shop_products").update(fields).eq("id", product.id);
+    const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
+    if (error) { onError("Не удалось сохранить: " + error.message); return; }
     onUpdated({ id: product.id, ...fields });
   }
 
   async function uploadImages(files) {
     setUploading(true);
     const uploaded = [];
+    const failed = [];
     for (const file of Array.from(files)) {
       const path = `products/${form.slug || product.id}/${Date.now()}-${file.name}`;
       const { error } = await supabase.storage.from("shop").upload(path, file);
       if (!error) {
         const { data } = supabase.storage.from("shop").getPublicUrl(path);
         uploaded.push(data.publicUrl);
+      } else {
+        failed.push(file.name);
       }
     }
     setUploading(false);
+    if (failed.length) onError(`Не удалось загрузить: ${failed.join(", ")}`);
     if (uploaded.length) await saveFields({ images: [...(form.images || []), ...uploaded] });
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import QRCode from "qrcode";
 import { supabase } from "./lib/supabaseClient";
 import ShopOrders from "./modules/shop/ShopOrders";
+import ShopProducts from "./modules/shop/ShopProducts";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -365,6 +366,24 @@ const styles = `
   .channel-item:hover { background: #F3F4F6; }
   .channel-item.disabled { color: #C0C5CC; cursor: not-allowed; }
   .channel-item.disabled:hover { background: none; }
+  .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 14px; font-size: 12px; background: #F3F4F6; color: #374151; cursor: pointer; border: 1px solid transparent; user-select: none; }
+  .chip.selected { background: #DCFCE7; color: #16A34A; border-color: #BBF7D0; }
+  .chip-input { display: inline-flex; }
+  .img-thumb-list { display: flex; gap: 10px; flex-wrap: wrap; }
+  .img-thumb { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 2px solid #E5E7EB; cursor: grab; flex-shrink: 0; }
+  .img-thumb.main { border-color: #22C55E; }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-thumb .img-remove { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; line-height: 1; }
+  .img-thumb-add { width: 72px; height: 72px; border-radius: 8px; border: 2px dashed #D1D5DB; display: flex; align-items: center; justify-content: center; color: #9CA3AF; cursor: pointer; font-size: 22px; flex-shrink: 0; }
+  .drag-row.dragging { opacity: 0.4; }
+  .drag-handle { cursor: grab; color: #C0C5CC; padding: 0 6px; }
+  .tabs-row { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tab-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #E5E7EB; background: #F9FAFB; font-size: 12px; cursor: pointer; color: #6B7280; font-family: 'Inter', sans-serif; }
+  .tab-btn.active { background: #2B58A1; color: #fff; border-color: #2B58A1; }
+  .old-price { text-decoration: line-through; color: #9CA3AF; font-size: 11px; margin-right: 4px; }
+  .inline-edit-cell { cursor: text; border-bottom: 1px dashed transparent; }
+  .inline-edit-cell:hover { border-bottom-color: #9CA3AF; }
 `;
 
 // ============================================================
@@ -732,7 +751,7 @@ function CRMApp() {
           {page === "warranties" && <Warranties t={t} />}
           {page === "staff" && <Staff t={t} />}
           {page === "shop_orders" && <ShopOrders />}
-          {page === "shop_products" && <ComingSoon title="Товары магазина" />}
+          {page === "shop_products" && <ShopProducts />}
           {page === "reviews" && <Reviews t={t} />}
           {page === "discounts" && <Discounts t={t} />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
@@ -766,7 +785,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   ];
   const shopItems = [
     { key: "shop_orders", label: "Заказы магазина" },
-    { key: "shop_products", label: "Товары магазина", soon: true },
+    { key: "shop_products", label: "Товары магазина" },
     { key: "reviews", label: t.reviews, badge: pendingReviews },
     { key: "discounts", label: t.discounts },
     { key: "loyalty", label: t.loyalty },

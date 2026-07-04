@@ -695,7 +695,11 @@ function CRMApp({ session }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    // scope defaults to 'global': revokes the refresh token server-side and
+    // clears localStorage, not just hiding the UI — getSession() will return
+    // null right after this resolves.
+    const { error } = await supabase.auth.signOut();
+    if (error) alert("Не удалось выйти: " + error.message);
   }
 
   // Счётчик отзывов на модерации + Realtime
@@ -799,6 +803,7 @@ export default function App() {
 function AuthGate() {
   const [session, setSession] = useState(undefined); // undefined = still checking
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [justSignedOut, setJustSignedOut] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -808,6 +813,8 @@ function AuthGate() {
     // and GoTrue falls back to the Site URL) — so we don't rely on pathname here.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
+      if (event === "SIGNED_OUT") setJustSignedOut(true);
+      if (event === "SIGNED_IN") setJustSignedOut(false);
       setSession(s);
     });
     return () => sub.subscription.unsubscribe();
@@ -823,7 +830,7 @@ function AuthGate() {
       ) : session ? (
         <CRMApp session={session} />
       ) : (
-        <Login />
+        <Login justSignedOut={justSignedOut} />
       )}
     </>
   );

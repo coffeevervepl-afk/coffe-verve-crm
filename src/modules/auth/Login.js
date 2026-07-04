@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-export default function Login() {
+export default function Login({ justSignedOut }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  const [toast, setToast] = useState(justSignedOut ? "Вы вышли из системы" : null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -15,7 +22,9 @@ export default function Login() {
     setLoading(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
-    if (signInError) setError("Неверный email или пароль");
+    if (signInError) { setError("Неверный email или пароль"); return; }
+    setEmail("");
+    setPassword("");
   }
 
   async function handleForgot(e) {
@@ -39,15 +48,21 @@ export default function Login() {
           </div>
         </div>
 
+        {toast && (
+          <div style={{ background: "#F0FDF4", color: "#15803D", fontSize: 12, borderRadius: 8, padding: "8px 12px", marginBottom: 16, textAlign: "center" }}>
+            {toast}
+          </div>
+        )}
+
         {mode === "login" ? (
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin} autoComplete="off">
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, color: "#374151", fontWeight: 500, marginBottom: 6 }}>Email</label>
-              <input className="input" type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)} />
+              <input className="input" type="email" required autoFocus autoComplete="off" value={email} onChange={e => setEmail(e.target.value)} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, color: "#374151", fontWeight: 500, marginBottom: 6 }}>Пароль</label>
-              <input className="input" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
+              <input className="input" type="password" required autoComplete="off" value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             {error && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 12 }}>{error}</div>}
             <button className="btn btn-primary" style={{ width: "100%", marginBottom: 12 }} disabled={loading} type="submit">
@@ -60,7 +75,7 @@ export default function Login() {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleForgot}>
+          <form onSubmit={handleForgot} autoComplete="off">
             {forgotSent ? (
               <div style={{ fontSize: 13, color: "#374151", marginBottom: 16 }}>
                 Если такой email зарегистрирован, письмо со ссылкой для сброса пароля отправлено.
@@ -68,7 +83,7 @@ export default function Login() {
             ) : (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 12, color: "#374151", fontWeight: 500, marginBottom: 6 }}>Email</label>
-                <input className="input" type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)} />
+                <input className="input" type="email" required autoFocus autoComplete="off" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
             )}
             {!forgotSent && (

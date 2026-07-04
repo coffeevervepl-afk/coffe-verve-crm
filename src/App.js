@@ -1935,7 +1935,10 @@ function Orders({ t, lang }) {
                   <tr key={o.id}>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{filtered.length - i}</td>
                     <td style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
-                      <div style={{ fontWeight: 500 }}>{o.clients?.name || "—"}</div>
+                      <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
+                        {o.clients?.name || "—"}
+                        {o.shop_order_id && <span title="Заказ с сайта">🛒</span>}
+                      </div>
                       <div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div>
                     </td>
                     <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>

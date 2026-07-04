@@ -30,6 +30,13 @@ function isPublishable(p) {
   return !!(p.description_ru?.trim() && p.description_pl?.trim() && p.description_ua?.trim() && p.images?.length);
 }
 
+const EDITABLE_FIELD_KEYS = [
+  "name_ru", "slug", "origin", "altitude", "process", "roast_level",
+  "flavor_notes_ru", "flavor_notes_pl", "flavor_notes_ua",
+  "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
+  "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
+];
+
 export default function ShopProducts() {
   const [products, setProducts] = useState([]);
   const [soldMap, setSoldMap] = useState({});
@@ -323,6 +330,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
   const [form, setForm] = useState(product);
   const [descTab, setDescTab] = useState("ru");
   const [uploading, setUploading] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
   const dragImgIndex = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -333,6 +341,17 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
     const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
     if (error) { onError("Не удалось сохранить: " + error.message); return; }
     onUpdated({ id: product.id, ...fields });
+  }
+
+  async function saveAll() {
+    setSavingAll(true);
+    const fields = {};
+    EDITABLE_FIELD_KEYS.forEach(k => { fields[k] = form[k] === "" ? null : form[k]; });
+    const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
+    setSavingAll(false);
+    if (error) { onError("Не удалось сохранить: " + error.message); return; }
+    onUpdated({ id: product.id, ...fields });
+    onError("Товар сохранён");
   }
 
   async function uploadImages(files) {
@@ -502,6 +521,10 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
               <textarea className="input" rows={2} value={form.seo_description || ""} onChange={e => setForm({ ...form, seo_description: e.target.value })} onBlur={() => saveFields({ seo_description: form.seo_description })} />
             </div>
           </div>
+
+          <button className="btn btn-primary" style={{ width: "100%" }} disabled={savingAll} onClick={saveAll}>
+            {savingAll ? "…" : "Сохранить"}
+          </button>
 
         </div>
       </div>

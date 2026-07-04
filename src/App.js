@@ -5,6 +5,7 @@ import ShopOrders from "./modules/shop/ShopOrders";
 import ShopProducts from "./modules/shop/ShopProducts";
 import ShopReviews from "./modules/shop/ShopReviews";
 import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
+import ShopCustomers from "./modules/shop/ShopCustomers";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -757,7 +758,7 @@ function CRMApp() {
           {page === "reviews" && <ShopReviews />}
           {page === "discounts" && <ShopPromoCodes />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
-          {page === "shop_customers" && <ComingSoon title="Покупатели" />}
+          {page === "shop_customers" && <ShopCustomers />}
           {page === "shop_analytics" && <ComingSoon title="Аналитика магазина" />}
         </div>
       </div>
@@ -791,7 +792,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "reviews", label: t.reviews, badge: pendingReviews },
     { key: "discounts", label: "Промокоды" },
     { key: "loyalty", label: t.loyalty },
-    { key: "shop_customers", label: "Покупатели", soon: true },
+    { key: "shop_customers", label: "Покупатели" },
     { key: "shop_analytics", label: "Аналитика магазина", soon: true },
   ];
   const icons = {

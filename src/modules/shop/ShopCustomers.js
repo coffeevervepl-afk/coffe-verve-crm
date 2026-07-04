@@ -1,0 +1,283 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabaseClient";
+
+const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
+const LANG_FLAG = { ru: "🇷🇺", pl: "🇵🇱", ua: "🇺🇦" };
+const ORDER_STATUS_LABELS = { new: "Новый", confirmed: "Оплачен", processing: "Собирается", shipped: "Отправлен", delivered: "Доставлен", cancelled: "Отменён" };
+const NINETY_DAYS_MS = 90 * 24 * 3600 * 1000;
+
+const FILTERS = [
+  { key: "all", label: "Все" },
+  { key: "classic", label: "Classic" },
+  { key: "gold", label: "Gold" },
+  { key: "platinum", label: "Platinum" },
+  { key: "b2b", label: "B2B" },
+  { key: "inactive", label: "Неактивные 90+" },
+  { key: "abandoned", label: "Брошенные корзины" },
+];
+
+export default function ShopCustomers() {
+  const [customers, setCustomers] = useState([]);
+  const [orderCounts, setOrderCounts] = useState({});
+  const [abandonedIds, setAbandonedIds] = useState(new Set());
+  const [config, setConfig] = useState({});
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [usersRes, ordersRes, cartsRes, cfgRes] = await Promise.all([
+      supabase.from("shop_users").select("*").order("spent_12m", { ascending: false, nullsFirst: false }),
+      supabase.from("shop_orders").select("shop_user_id"),
+      supabase.from("shop_carts").select("shop_user_id, items, expires_at").not("shop_user_id", "is", null),
+      supabase.from("loyalty_config").select("key, value"),
+    ]);
+    if (usersRes.error) showToast("Ошибка загрузки покупателей: " + usersRes.error.message);
+
+    const counts = {};
+    (ordersRes.data || []).forEach(o => {
+      if (!o.shop_user_id) return;
+      counts[o.shop_user_id] = (counts[o.shop_user_id] || 0) + 1;
+    });
+    setOrderCounts(counts);
+
+    const abandoned = new Set();
+    (cartsRes.data || []).forEach(c => {
+      const hasItems = Array.isArray(c.items) && c.items.length > 0;
+      const notExpired = !c.expires_at || new Date(c.expires_at) > new Date();
+      if (hasItems && notExpired) abandoned.add(c.shop_user_id);
+    });
+    setAbandonedIds(abandoned);
+
+    const cfg = {};
+    (cfgRes.data || []).forEach(r => { cfg[r.key] = Number(r.value); });
+    setConfig(cfg);
+
+    setCustomers(usersRes.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const now = Date.now();
+  const isInactive = (c) => !c.last_purchase_at || (now - new Date(c.last_purchase_at).getTime()) > NINETY_DAYS_MS;
+
+  const filtered = customers.filter(c => {
+    const matchFilter = filter === "all" ? true
+      : filter === "b2b" ? c.is_b2b
+      : filter === "inactive" ? isInactive(c)
+      : filter === "abandoned" ? abandonedIds.has(c.id)
+      : (c.loyalty_level || "classic") === filter && !c.is_b2b;
+    const q = search.toLowerCase();
+    const matchSearch = !q || (c.name || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+
+  function remindAbandoned(c) {
+    showToast(`Напоминание с кодом −5% для ${c.name || c.email} — появится вместе с N8N-автоматизацией`);
+  }
+
+  return (
+    <div>
+      <div className="topbar"><span className="topbar-title">Покупатели ({customers.length})</span></div>
+      <div className="content">
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {FILTERS.map(f => (
+            <button key={f.key} className={"btn btn-sm " + (filter === f.key ? "btn-primary" : "btn-secondary")} onClick={() => setFilter(f.key)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <input className="search-bar" placeholder="Поиск по имени, email..." value={search} onChange={e => setSearch(e.target.value)} />
+        {loading ? <div className="empty-state">Загрузка...</div> : (
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Имя</th><th>Email</th><th>Уровень</th><th>Заказов</th>
+                  <th>Потрачено 12м</th><th>Последняя покупка</th><th>Скидка до</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">Нет покупателей</td></tr> : filtered.map(c => {
+                  const minActive = c.min_discount_until && new Date(c.min_discount_until) > new Date();
+                  const inactive = isInactive(c);
+                  return (
+                    <tr key={c.id} style={inactive ? { background: "#FFF7F7" } : undefined}>
+                      <td style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => setSelected(c)}>
+                        <span style={{ marginRight: 5 }}>{LANG_FLAG[c.language] || ""}</span>{c.name || "—"}
+                      </td>
+                      <td style={{ color: "#6B7280", fontSize: 12 }}>{c.email}</td>
+                      <td>
+                        {c.is_b2b
+                          ? <span className="level-badge level-b2b">B2B</span>
+                          : <span className={"level-badge level-" + (c.loyalty_level || "classic")}>{(c.loyalty_level || "classic")}</span>}
+                      </td>
+                      <td style={{ textAlign: "center", color: "#4B5563" }}>{orderCounts[c.id] || 0}</td>
+                      <td style={{ fontWeight: 600 }}>{fmtMoney(c.spent_12m || 0)}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {c.last_purchase_at ? (
+                          <span style={{ color: inactive ? "#DC2626" : "#6B7280" }}>
+                            {fmtDate(c.last_purchase_at)}
+                            {inactive && <span style={{ marginLeft: 4, fontSize: 10, background: "#FEE2E2", color: "#DC2626", padding: "1px 5px", borderRadius: 4 }}>90+</span>}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {minActive ? <span style={{ color: "#16A34A", fontWeight: 500 }}>✓ {fmtDate(c.min_discount_until)}</span> : "—"}
+                      </td>
+                      <td>
+                        {abandonedIds.has(c.id) && (
+                          <button className="btn btn-sm" style={{ background: "#FEF3C7", color: "#92400E" }} onClick={() => remindAbandoned(c)}>
+                            Напомнить −5%
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {selected && <CustomerDrawer customer={selected} config={config} onClose={() => setSelected(null)} onError={showToast} />}
+      {toast && <div className="print-toast">{toast}</div>}
+    </div>
+  );
+}
+
+function flattenStrings(value, acc) {
+  if (value == null) return acc;
+  if (typeof value === "string") { acc.push(value.toLowerCase()); return acc; }
+  if (Array.isArray(value)) { value.forEach(v => flattenStrings(v, acc)); return acc; }
+  if (typeof value === "object") { Object.values(value).forEach(v => flattenStrings(v, acc)); return acc; }
+  return acc;
+}
+
+function CustomerDrawer({ customer, config, onClose, onError }) {
+  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [crmClient, setCrmClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const [ordersRes, productsRes, crmRes] = await Promise.all([
+        supabase.from("shop_orders").select("id, order_number, created_at, total, status").eq("shop_user_id", customer.id).order("created_at", { ascending: false }),
+        supabase.from("shop_products").select("name_ru, flavor_notes_ru, origin").eq("is_active", true),
+        customer.crm_client_id
+          ? supabase.from("clients").select("id, name, client_code").eq("id", customer.crm_client_id).maybeSingle()
+          : (customer.email
+            ? supabase.from("clients").select("id, name, client_code").ilike("email", customer.email).maybeSingle()
+            : Promise.resolve({ data: null, error: null })),
+      ]);
+      if (cancelled) return;
+      if (ordersRes.error) onError("Ошибка загрузки заказов: " + ordersRes.error.message);
+      setOrders(ordersRes.data || []);
+      setProducts(productsRes.data || []);
+      setCrmClient(crmRes.data || null);
+      setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [customer.id, customer.crm_client_id, customer.email, onError]);
+
+  const tasteTerms = flattenStrings(customer.taste_profile, []);
+  const suggestions = tasteTerms.length === 0 ? [] : products
+    .map(p => {
+      const notes = (p.flavor_notes_ru || "").toLowerCase();
+      const score = tasteTerms.reduce((s, term) => s + (notes.includes(term) ? 1 : 0), 0);
+      return { ...p, score };
+    })
+    .filter(p => p.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const goldThreshold = config.gold_threshold || 600;
+  const platinumThreshold = config.platinum_threshold || 1800;
+  const spent = Number(customer.spent_12m || 0);
+  const nextThreshold = customer.loyalty_level === "platinum" ? null : customer.loyalty_level === "gold" ? platinumThreshold : goldThreshold;
+  const progressPct = nextThreshold ? Math.min(100, Math.round((spent / nextThreshold) * 100)) : 100;
+  const minActive = customer.min_discount_until && new Date(customer.min_discount_until) > new Date();
+
+  return (
+    <div className="drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <span className="drawer-title">{customer.name || customer.email}</span>
+          <button className="drawer-close" onClick={onClose}>×</button>
+        </div>
+        <div className="drawer-body">
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">Лояльность</div>
+            <div className="detail-row">
+              <span className="detail-label">Уровень</span>
+              <span>{customer.is_b2b ? <span className="level-badge level-b2b">B2B</span> : <span className={"level-badge level-" + (customer.loyalty_level || "classic")}>{customer.loyalty_level || "classic"}</span>}</span>
+            </div>
+            {!customer.is_b2b && nextThreshold && (
+              <div style={{ margin: "8px 0" }}>
+                <div className="bar-track"><div className="bar-fill" style={{ width: `${progressPct}%` }} /></div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>{fmtMoney(spent)} из {fmtMoney(nextThreshold)} до следующего уровня</div>
+              </div>
+            )}
+            <div className="detail-row"><span className="detail-label">Потрачено за 12м</span><span className="detail-value">{fmtMoney(spent)}</span></div>
+            <div className="detail-row"><span className="detail-label">Скидка до</span><span className="detail-value">{minActive ? `✓ ${fmtDate(customer.min_discount_until)}` : "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">Реферальный код</span><span className="detail-value">{customer.referral_code ? <span className="promo-tag">{customer.referral_code}</span> : "—"}</span></div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">История заказов магазина</div>
+            {loading ? "Загрузка..." : orders.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>Заказов нет</div> : orders.map(o => (
+              <div key={o.id} className="detail-row">
+                <span className="detail-label">№{o.order_number} · {fmtDate(o.created_at)}</span>
+                <span className="detail-value">{fmtMoney(o.total)} · {ORDER_STATUS_LABELS[o.status] || o.status}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">Вкусовой профиль</div>
+            {tasteTerms.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>Квиз не пройден</div>
+            ) : (
+              <>
+                <div className="chip-list" style={{ marginBottom: 10 }}>
+                  {tasteTerms.map((term, i) => <span key={i} className="chip selected">{term}</span>)}
+                </div>
+                <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>Что предложить:</div>
+                {suggestions.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#9CA3AF" }}>Совпадений по вкусу не найдено</div>
+                ) : suggestions.map((p, i) => (
+                  <div key={i} className="detail-row"><span className="detail-label">{p.name_ru}</span><span className="detail-value" style={{ fontSize: 11 }}>{p.origin}</span></div>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">Связь с CRM</div>
+            {crmClient ? (
+              <div style={{ fontSize: 13, color: "#16A34A" }}>Это клиент CRM: <b>{crmClient.name}</b> ({crmClient.client_code || "без кода"})</div>
+            ) : (
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>Совпадений с клиентами CRM не найдено</div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

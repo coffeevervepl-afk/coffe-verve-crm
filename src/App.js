@@ -6,6 +6,7 @@ import ShopProducts from "./modules/shop/ShopProducts";
 import ShopReviews from "./modules/shop/ShopReviews";
 import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 import ShopCustomers from "./modules/shop/ShopCustomers";
+import ShopAnalytics from "./modules/shop/ShopAnalytics";
 
 // ============================================================
 // ПЕРЕВОДЫ
@@ -765,7 +766,7 @@ function CRMApp() {
           {page === "discounts" && <ShopPromoCodes />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
           {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
-          {page === "shop_analytics" && <ComingSoon title="Аналитика магазина" />}
+          {page === "shop_analytics" && <ShopAnalytics />}
         </div>
       </div>
     </>
@@ -799,7 +800,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "discounts", label: "Промокоды" },
     { key: "loyalty", label: t.loyalty },
     { key: "shop_customers", label: "Покупатели" },
-    { key: "shop_analytics", label: "Аналитика магазина", soon: true },
+    { key: "shop_analytics", label: "Аналитика магазина" },
   ];
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -846,17 +847,6 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
             </button>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ComingSoon({ title }) {
-  return (
-    <div>
-      <div className="topbar"><span className="topbar-title">{title}</span></div>
-      <div className="content">
-        <div className="card"><div className="empty-state">Раздел «{title}» появится на одном из следующих этапов</div></div>
       </div>
     </div>
   );

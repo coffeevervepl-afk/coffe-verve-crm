@@ -52,7 +52,7 @@ function compositionSummary(items) {
   return { short: shortText, full };
 }
 
-export default function ShopOrders() {
+export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState("new");
   const [search, setSearch] = useState("");
@@ -78,6 +78,14 @@ export default function ShopOrders() {
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  useEffect(() => {
+    if (!openOrderId || orders.length === 0) return;
+    const found = orders.find(o => o.id === openOrderId);
+    if (found) setSelected(found);
+    else showToast("Заказ не найден");
+    onOpenOrderHandled?.();
+  }, [openOrderId, orders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function changeStatus(id, status) {
     const { error } = await supabase.from("shop_orders").update({ status }).eq("id", id);

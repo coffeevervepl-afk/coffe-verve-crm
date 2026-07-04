@@ -676,7 +676,13 @@ function CRMApp() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [newWarranties, setNewWarranties] = useState(0);
   const [pendingReviews, setPendingReviews] = useState(0);
+  const [openShopOrderId, setOpenShopOrderId] = useState(null);
   const t = T[lang];
+
+  function openShopOrder(orderId) {
+    setOpenShopOrderId(orderId);
+    setPage("shop_orders");
+  }
 
   // Счётчик отзывов на модерации + Realtime
   useEffect(() => {
@@ -753,12 +759,12 @@ function CRMApp() {
           {page === "products" && <Products t={t} lang={lang} />}
           {page === "warranties" && <Warranties t={t} />}
           {page === "staff" && <Staff t={t} />}
-          {page === "shop_orders" && <ShopOrders />}
+          {page === "shop_orders" && <ShopOrders openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
           {page === "shop_products" && <ShopProducts />}
           {page === "reviews" && <ShopReviews />}
           {page === "discounts" && <ShopPromoCodes />}
           {page === "loyalty" && <LoyaltyAdmin t={t} />}
-          {page === "shop_customers" && <ShopCustomers />}
+          {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
           {page === "shop_analytics" && <ComingSoon title="Аналитика магазина" />}
         </div>
       </div>

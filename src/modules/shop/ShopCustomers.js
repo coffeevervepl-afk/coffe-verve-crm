@@ -7,6 +7,11 @@ const LANG_FLAG = { ru: "🇷🇺", pl: "🇵🇱", ua: "🇺🇦" };
 const ORDER_STATUS_LABELS = { new: "Новый", confirmed: "Оплачен", processing: "Собирается", shipped: "Отправлен", delivered: "Доставлен", cancelled: "Отменён" };
 const NINETY_DAYS_MS = 90 * 24 * 3600 * 1000;
 
+function compositionText(items) {
+  if (!items || items.length === 0) return "—";
+  return items.map(i => `${i.product_name} ${i.weight}g ×${i.quantity}`).join(", ");
+}
+
 const FILTERS = [
   { key: "all", label: "Все" },
   { key: "classic", label: "Classic" },
@@ -17,7 +22,7 @@ const FILTERS = [
   { key: "abandoned", label: "Брошенные корзины" },
 ];
 
-export default function ShopCustomers() {
+export default function ShopCustomers({ onOpenOrder }) {
   const [customers, setCustomers] = useState([]);
   const [orderCounts, setOrderCounts] = useState({});
   const [abandonedIds, setAbandonedIds] = useState(new Set());
@@ -153,7 +158,7 @@ export default function ShopCustomers() {
           </div>
         )}
       </div>
-      {selected && <CustomerDrawer customer={selected} config={config} onClose={() => setSelected(null)} onError={showToast} />}
+      {selected && <CustomerDrawer customer={selected} config={config} onClose={() => setSelected(null)} onError={showToast} onOpenOrder={onOpenOrder} />}
       {toast && <div className="print-toast">{toast}</div>}
     </div>
   );
@@ -167,7 +172,7 @@ function flattenStrings(value, acc) {
   return acc;
 }
 
-function CustomerDrawer({ customer, config, onClose, onError }) {
+function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [crmClient, setCrmClient] = useState(null);
@@ -178,7 +183,7 @@ function CustomerDrawer({ customer, config, onClose, onError }) {
     async function load() {
       setLoading(true);
       const [ordersRes, productsRes, crmRes] = await Promise.all([
-        supabase.from("shop_orders").select("id, order_number, created_at, total, status").eq("shop_user_id", customer.id).order("created_at", { ascending: false }),
+        supabase.from("shop_orders").select("id, order_number, created_at, total, status, shop_order_items(product_name, weight, quantity)").eq("shop_user_id", customer.id).order("created_at", { ascending: false }),
         supabase.from("shop_products").select("name_ru, flavor_notes_ru, origin").eq("is_active", true),
         customer.crm_client_id
           ? supabase.from("clients").select("id, name, client_code").eq("id", customer.crm_client_id).maybeSingle()
@@ -244,9 +249,15 @@ function CustomerDrawer({ customer, config, onClose, onError }) {
           <div className="drawer-section">
             <div className="drawer-section-title">История заказов магазина</div>
             {loading ? "Загрузка..." : orders.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>Заказов нет</div> : orders.map(o => (
-              <div key={o.id} className="detail-row">
-                <span className="detail-label">№{o.order_number} · {fmtDate(o.created_at)}</span>
-                <span className="detail-value">{fmtMoney(o.total)} · {ORDER_STATUS_LABELS[o.status] || o.status}</span>
+              <div key={o.id}
+                style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6", cursor: onOpenOrder ? "pointer" : "default" }}
+                onClick={() => onOpenOrder?.(o.id)}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span className="detail-label">№{o.order_number} · {fmtDate(o.created_at)}</span>
+                  <span className="detail-value">{fmtMoney(o.total)} · {ORDER_STATUS_LABELS[o.status] || o.status}</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{compositionText(o.shop_order_items)}</div>
               </div>
             ))}
           </div>

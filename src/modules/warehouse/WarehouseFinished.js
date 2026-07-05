@@ -48,7 +48,7 @@ export default function WarehouseFinished() {
   useEffect(() => { load(); }, []); // eslint-disable-line
 
   async function saveSetting(field, value) {
-    const num = Number(value) || 0;
+    const num = Number(String(value).replace(",", ".")) || 0;
     const { error } = await supabase.from("warehouse_economics_settings").update({ [field]: num }).eq("id", 1);
     if (error) { showToast("Не удалось сохранить настройку: " + error.message); return; }
     setSettings(prev => ({ ...prev, [field]: num }));
@@ -85,7 +85,7 @@ export default function WarehouseFinished() {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Склад: Готовое</span>
+        <span className="topbar-title">Готовая продукция</span>
       </div>
       <div className="content">
         {settings && (
@@ -94,15 +94,18 @@ export default function WarehouseFinished() {
             <div className="config-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
               <div className="config-item">
                 <label>Тариф доставки для нас, zł</label>
-                <input type="number" defaultValue={settings.shipping_cost_for_us} onBlur={e => saveSetting("shipping_cost_for_us", e.target.value)} />
+                <input type="text" inputMode="decimal" defaultValue={settings.shipping_cost_for_us} onBlur={e => saveSetting("shipping_cost_for_us", e.target.value)} />
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>Сколько нам стоит одна отправка InPost</div>
               </div>
               <div className="config-item">
                 <label>Комиссия платежей, %</label>
-                <input type="number" defaultValue={settings.payment_commission_pct} onBlur={e => saveSetting("payment_commission_pct", e.target.value)} />
+                <input type="text" inputMode="decimal" defaultValue={settings.payment_commission_pct} onBlur={e => saveSetting("payment_commission_pct", e.target.value)} />
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>% платёжной системы: Stripe ~2.9%, P24 ~1.9%</div>
               </div>
               <div className="config-item">
                 <label>Упаковка отправки, zł</label>
-                <input type="number" defaultValue={settings.shipping_packaging_cost} onBlur={e => saveSetting("shipping_packaging_cost", e.target.value)} />
+                <input type="text" inputMode="decimal" defaultValue={settings.shipping_packaging_cost} onBlur={e => saveSetting("shipping_packaging_cost", e.target.value)} />
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>Резервная оценка, если коробка не выбрана или нет позиций категории «Материалы для отправки»</div>
               </div>
             </div>
           </div>

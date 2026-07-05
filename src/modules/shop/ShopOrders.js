@@ -4,6 +4,18 @@ import { supabase } from "../../lib/supabaseClient";
 const fmtDate = (d) => d ? new Date(d).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
 
+function sizeFromName(name) {
+  if (/\bS\b/i.test(name)) return "S";
+  if (/\bM\b/i.test(name)) return "M";
+  if (/\bL\b/i.test(name)) return "L";
+  return null;
+}
+function suggestBoxSize(totalKg) {
+  if (totalKg <= 1) return "S";
+  if (totalKg <= 3) return "M";
+  return "L";
+}
+
 const STATUS_LABELS = { new: "Новый", confirmed: "Оплачен", processing: "Собирается", shipped: "Отправлен", delivered: "Доставлен", cancelled: "Отменён" };
 const STATUS_PILL = {
   new: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
@@ -321,6 +333,7 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
                 <button className="btn btn-secondary btn-sm" disabled={savingTracking} onClick={saveTracking}>Сохранить</button>
               </div>
             </div>
+            <PackagingSelect order={order} onUpdated={onUpdated} showToast={onError} />
           </div>
 
           <div className="drawer-section">
@@ -370,6 +383,63 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
 
         </div>
       </div>
+    </div>
+  );
+}
+
+function PackagingSelect({ order, onUpdated, showToast }) {
+  const [boxes, setBoxes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [packagingId, setPackagingId] = useState(order.packaging_item_id || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("warehouse_items")
+        .select("id, name, stock_qty, avg_price_net")
+        .eq("category", "shipping_materials")
+        .order("name");
+      if (error) { showToast("Ошибка загрузки коробок: " + error.message); setLoading(false); return; }
+      if (cancelled) return;
+      const list = data || [];
+      setBoxes(list);
+      setLoading(false);
+
+      if (!order.packaging_item_id && list.length) {
+        const totalG = (order.shop_order_items || []).reduce((s, it) => s + (Number(it.weight) || 0) * (Number(it.quantity) || 1), 0);
+        const suggestedSize = suggestBoxSize(totalG / 1000);
+        const match = list.find(b => sizeFromName(b.name) === suggestedSize);
+        if (match) save(match.id, true);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [order.id]); // eslint-disable-line
+
+  async function save(id, silent) {
+    setSaving(true);
+    const { error } = await supabase.from("shop_orders").update({ packaging_item_id: id || null }).eq("id", order.id);
+    setSaving(false);
+    if (error) { showToast("Не удалось сохранить упаковку: " + error.message); return; }
+    setPackagingId(id || "");
+    onUpdated({ id: order.id, packaging_item_id: id || null });
+    if (!silent) showToast("Упаковка сохранена");
+  }
+
+  if (loading) return null;
+
+  return (
+    <div className="form-group" style={{ marginTop: 10 }}>
+      <label className="form-label">Упаковка отправки</label>
+      <select className="input" value={packagingId} disabled={saving} onChange={e => save(e.target.value)}>
+        <option value="">— не выбрано (оценка из настроек) —</option>
+        {boxes.map(b => (
+          <option key={b.id} value={b.id}>{b.name} · остаток {b.stock_qty} · {fmtMoney(b.avg_price_net)}</option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -426,7 +496,7 @@ function EconomicsBlock({ order, showToast }) {
       const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
       if (!cancelled) {
-        setData({ revenue, beanCost, bagCost, labelCost, boxCost, shippingCost, commissionCost, profit, margin, hasShortage });
+        setData({ revenue, beanCost, bagCost, labelCost, boxCost, shippingCost, commissionCost, profit, margin, hasShortage, boxIsEstimate: !hasBoxMovement });
         setLoading(false);
       }
     }
@@ -449,7 +519,7 @@ function EconomicsBlock({ order, showToast }) {
     ["Зерно", -data.beanCost],
     ["Пакеты", -data.bagCost],
     ["Этикетки", -data.labelCost],
-    ["Упаковка отправки", -data.boxCost],
+    [data.boxIsEstimate ? "Упаковка отправки (оценка)" : "Упаковка отправки", -data.boxCost],
     ["Доставка", -data.shippingCost],
     ["Комиссия оплаты", -data.commissionCost],
   ];

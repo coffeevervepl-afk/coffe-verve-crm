@@ -910,7 +910,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   const warehouseItems = [
     { key: "warehouse_raw", label: "Склад: Сырьё" },
     { key: "production", label: "Производство" },
-    { key: "warehouse_finished", label: "Склад: Готовое" },
+    { key: "warehouse_finished", label: "Готовая продукция" },
   ].filter(item => canSee(item.key));
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -2390,7 +2390,7 @@ const STAFF_MODULES = [
   { key: "shop_analytics", label: "Аналитика магазина" },
   { key: "warehouse_raw", label: "Склад: Сырьё" },
   { key: "production", label: "Производство" },
-  { key: "warehouse_finished", label: "Склад: Готовое" },
+  { key: "warehouse_finished", label: "Готовая продукция" },
 ];
 
 async function callStaffAdmin(action, payload) {

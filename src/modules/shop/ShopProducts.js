@@ -492,6 +492,8 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
             ))}
           </div>
 
+          <CostMarginBlock product={form} showToast={onError} />
+
           <div className="drawer-section">
             <div className="drawer-section-title">
               Описания (RU/PL/UA) {!publishable && <span style={{ color: "#B45309", fontWeight: 400 }}>— обязательны для публикации</span>}
@@ -528,6 +530,109 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
 
         </div>
       </div>
+    </div>
+  );
+}
+
+function CostMarginBlock({ product, showToast }) {
+  const [loading, setLoading] = useState(true);
+  const [sortInfo, setSortInfo] = useState(null);
+  const [bagCosts, setBagCosts] = useState({});
+  const [labelCost, setLabelCost] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!product.crm_product_id) { setLoading(false); return; }
+      setLoading(true);
+      const [{ data: crmProduct, error: cpErr }, { data: bags, error: bagsErr }, { data: labelItem, error: labelErr }] = await Promise.all([
+        supabase.from("products").select("name, country").eq("id", product.crm_product_id).maybeSingle(),
+        supabase.from("warehouse_items").select("category, avg_price_net").in("category", ["bags_250", "bags_500", "bags_1000"]),
+        supabase.from("warehouse_items").select("avg_price_net").eq("category", "labels").order("stock_qty", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (cpErr) showToast("Ошибка загрузки товара CRM: " + cpErr.message);
+      if (bagsErr) showToast("Ошибка загрузки пакетов: " + bagsErr.message);
+      if (labelErr) showToast("Ошибка загрузки этикеток: " + labelErr.message);
+      if (cancelled) return;
+
+      const bc = {};
+      (bags || []).forEach(b => {
+        const w = b.category === "bags_250" ? 250 : b.category === "bags_500" ? 500 : 1000;
+        bc[w] = Number(b.avg_price_net) || 0;
+      });
+      setBagCosts(bc);
+      setLabelCost(labelItem ? Number(labelItem.avg_price_net) || 0 : 0);
+
+      if (!crmProduct) { setSortInfo(null); setLoading(false); return; }
+
+      let avgCostPerKg = 0;
+      if (crmProduct.country === "Купаж") {
+        const { data: blends, error } = await supabase.from("blend_batches").select("cost_per_kg").eq("blend_name", crmProduct.name).order("mix_date", { ascending: false }).limit(1);
+        if (error) showToast("Ошибка загрузки купажей: " + error.message);
+        avgCostPerKg = blends?.[0] ? Number(blends[0].cost_per_kg) : 0;
+      } else {
+        const { data: roasts, error } = await supabase.from("roast_batches").select("cost_per_kg").eq("sort_name", crmProduct.name).order("roast_date", { ascending: false }).limit(1);
+        if (error) showToast("Ошибка загрузки обжарок: " + error.message);
+        avgCostPerKg = roasts?.[0] ? Number(roasts[0].cost_per_kg) : 0;
+      }
+      if (!cancelled) {
+        setSortInfo({ name: crmProduct.name, country: crmProduct.country, avgCostPerKg });
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [product.crm_product_id]); // eslint-disable-line
+
+  if (!product.crm_product_id) return null;
+  if (loading) {
+    return (
+      <div className="drawer-section">
+        <div className="drawer-section-title">Себестоимость и маржа</div>
+        <div className="empty-state">Загрузка...</div>
+      </div>
+    );
+  }
+  if (!sortInfo) {
+    return (
+      <div className="drawer-section">
+        <div className="drawer-section-title">Себестоимость и маржа</div>
+        <div className="empty-state">Не удалось найти связанный товар CRM</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="drawer-section">
+      <div className="drawer-section-title">Себестоимость и маржа</div>
+      {sortInfo.avgCostPerKg === 0 && (
+        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8 }}>
+          Ещё не было {sortInfo.country === "Купаж" ? "купажирования" : "обжарки"} для «{sortInfo.name}» — себестоимость зерна пока 0
+        </div>
+      )}
+      <table className="table">
+        <thead><tr><th>Вес</th><th>Зерно</th><th>Пакет</th><th>Этикетка</th><th>Себестоимость</th><th>Цена</th><th>Маржа</th></tr></thead>
+        <tbody>
+          {[250, 500, 1000].map(w => {
+            const beanCost = sortInfo.avgCostPerKg * (w / 1000);
+            const bagCost = bagCosts[w] || 0;
+            const cost = beanCost + bagCost + labelCost;
+            const price = Number(product[`price_${w}`]) || 0;
+            const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+            return (
+              <tr key={w}>
+                <td>{w}г</td>
+                <td>{fmtMoney(beanCost)}</td>
+                <td>{fmtMoney(bagCost)}</td>
+                <td>{fmtMoney(labelCost)}</td>
+                <td style={{ fontWeight: 600 }}>{fmtMoney(cost)}</td>
+                <td>{fmtMoney(price)}</td>
+                <td style={{ color: margin >= 0 ? "#16A34A" : "#DC2626", fontWeight: 600 }}>{price > 0 ? margin.toFixed(0) + "%" : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

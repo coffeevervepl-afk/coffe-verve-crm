@@ -356,6 +356,8 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
             )}
           </div>
 
+          <EconomicsBlock order={order} showToast={onError} />
+
           <div className="drawer-section">
             <div className="drawer-section-title">Связь</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: 12 }}>
@@ -367,6 +369,108 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
           </div>
 
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EconomicsBlock({ order, showToast }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const [{ data: crmOrders, error: crmErr }, { data: settings, error: setErr }] = await Promise.all([
+        supabase.from("orders").select("id").eq("shop_order_id", order.id),
+        supabase.from("warehouse_economics_settings").select("*").eq("id", 1).single(),
+      ]);
+      if (crmErr) showToast("Ошибка загрузки заказов CRM: " + crmErr.message);
+      if (setErr) showToast("Ошибка загрузки настроек экономики: " + setErr.message);
+      if (cancelled) return;
+
+      const refs = [...(crmOrders || []).map(o => o.id), order.id];
+      const { data: movements, error: mvErr } = await supabase
+        .from("warehouse_movements")
+        .select("movement_type, unit, unit_cost, qty_change, item_id")
+        .in("reference", refs);
+      if (mvErr) { showToast("Ошибка загрузки движений склада: " + mvErr.message); setLoading(false); return; }
+
+      const itemIds = [...new Set((movements || []).map(m => m.item_id).filter(Boolean))];
+      const itemCategoryById = {};
+      if (itemIds.length) {
+        const { data: items, error: itemsErr } = await supabase.from("warehouse_items").select("id, category").in("id", itemIds);
+        if (itemsErr) showToast("Ошибка загрузки позиций склада: " + itemsErr.message);
+        (items || []).forEach(it => { itemCategoryById[it.id] = it.category; });
+      }
+
+      let beanCost = 0, bagCost = 0, labelCost = 0, boxCost = 0, hasShortage = false, hasBoxMovement = false;
+      (movements || []).forEach(m => {
+        if (m.movement_type === "shortage") { hasShortage = true; return; }
+        if (m.movement_type !== "sale") return;
+        const cost = Math.abs(Number(m.qty_change)) * Number(m.unit_cost || 0);
+        if (m.unit === "kg") { beanCost += cost; return; }
+        const cat = itemCategoryById[m.item_id];
+        if (cat === "labels") labelCost += cost;
+        else if (cat === "shipping_materials") { boxCost += cost; hasBoxMovement = true; }
+        else if (cat) bagCost += cost;
+      });
+      if (!hasBoxMovement && settings) boxCost = Number(settings.shipping_packaging_cost) || 0;
+
+      const revenue = Number(order.total) || 0;
+      const shippingCost = settings ? Number(settings.shipping_cost_for_us) || 0 : 0;
+      const commissionPct = settings ? Number(settings.payment_commission_pct) || 0 : 0;
+      const commissionCost = revenue * (commissionPct / 100);
+      const profit = revenue - beanCost - bagCost - labelCost - boxCost - shippingCost - commissionCost;
+      const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+      if (!cancelled) {
+        setData({ revenue, beanCost, bagCost, labelCost, boxCost, shippingCost, commissionCost, profit, margin, hasShortage });
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [order.id]); // eslint-disable-line
+
+  if (loading) {
+    return (
+      <div className="drawer-section">
+        <div className="drawer-section-title">Экономика заказа</div>
+        <div className="empty-state">Загрузка...</div>
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const rows = [
+    ["Выручка", data.revenue],
+    ["Зерно", -data.beanCost],
+    ["Пакеты", -data.bagCost],
+    ["Этикетки", -data.labelCost],
+    ["Упаковка отправки", -data.boxCost],
+    ["Доставка", -data.shippingCost],
+    ["Комиссия оплаты", -data.commissionCost],
+  ];
+
+  return (
+    <div className="drawer-section">
+      <div className="drawer-section-title">Экономика заказа</div>
+      {data.hasShortage && (
+        <div style={{ fontSize: 11, color: "#B45309", marginBottom: 8 }}>⚠ При списании была нехватка позиций — расчёт может быть неполным</div>
+      )}
+      {rows.map(([label, value]) => (
+        <div key={label} className="detail-row">
+          <span className="detail-label">{label}</span>
+          <span className="detail-value" style={{ color: value < 0 ? "#DC2626" : "#1F2937" }}>{value < 0 ? "−" : ""}{fmtMoney(Math.abs(value))}</span>
+        </div>
+      ))}
+      <div className="detail-row">
+        <span className="detail-label" style={{ fontWeight: 700 }}>Прибыль</span>
+        <span className="detail-value" style={{ fontWeight: 700, color: data.profit >= 0 ? "#16A34A" : "#DC2626" }}>
+          {fmtMoney(data.profit)} ({data.margin.toFixed(1)}%)
+        </span>
       </div>
     </div>
   );

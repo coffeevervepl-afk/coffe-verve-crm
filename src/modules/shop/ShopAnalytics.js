@@ -57,6 +57,13 @@ export default function ShopAnalytics() {
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [productionQueue, setProductionQueue] = useState([]);
+  const [crmOrders, setCrmOrders] = useState([]);
+  const [saleMovements, setSaleMovements] = useState([]);
+  const [economicsSettings, setEconomicsSettings] = useState(null);
+  const [rawItems, setRawItems] = useState([]);
+  const [roastBatches, setRoastBatches] = useState([]);
+  const [blendBatches, setBlendBatches] = useState([]);
+  const [finishedMinStock, setFinishedMinStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -70,19 +77,43 @@ export default function ShopAnalytics() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [ordersRes, itemsRes, productsRes, reviewsRes, productionRes] = await Promise.all([
+    const [
+      ordersRes, itemsRes, productsRes, reviewsRes, productionRes,
+      crmOrdersRes, movementsRes, settingsRes, rawItemsRes, roastRes, blendRes, minStockRes,
+    ] = await Promise.all([
       supabase.from("shop_orders").select("id, created_at, total, payment_status, discount_amount, customer_email, shop_user_id"),
       supabase.from("shop_order_items").select("order_id, product_name, weight, quantity, line_total"),
       supabase.from("shop_products").select("id, name_ru, stock_status").eq("is_active", true),
       supabase.from("shop_reviews").select("id, author_name, rating, review_text, status, created_at").lte("rating", 2),
       supabase.from("orders").select("id, weight, shop_order_id").in("status", ["new", "processing"]),
+      supabase.from("orders").select("id, shop_order_id").not("shop_order_id", "is", null),
+      supabase.from("warehouse_movements").select("reference, movement_type, unit, unit_cost, qty_change, item_id, created_at").in("movement_type", ["sale", "shortage"]),
+      supabase.from("warehouse_economics_settings").select("*").eq("id", 1).single(),
+      supabase.from("warehouse_items").select("id, name, category, stock_qty, min_stock"),
+      supabase.from("roast_batches").select("sort_name, remaining_kg, roast_date"),
+      supabase.from("blend_batches").select("blend_name, remaining_kg, mix_date"),
+      supabase.from("finished_goods_min_stock").select("name, min_stock"),
     ]);
     if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
     if (itemsRes.error) showToast("Ошибка загрузки позиций: " + itemsRes.error.message);
     if (productionRes.error) showToast("Ошибка загрузки очереди производства: " + productionRes.error.message);
+    if (crmOrdersRes.error) showToast("Ошибка загрузки заказов CRM: " + crmOrdersRes.error.message);
+    if (movementsRes.error) showToast("Ошибка загрузки движений склада: " + movementsRes.error.message);
+    if (settingsRes.error) showToast("Ошибка загрузки настроек экономики: " + settingsRes.error.message);
+    if (rawItemsRes.error) showToast("Ошибка загрузки позиций склада: " + rawItemsRes.error.message);
+    if (roastRes.error) showToast("Ошибка загрузки обжарок: " + roastRes.error.message);
+    if (blendRes.error) showToast("Ошибка загрузки купажей: " + blendRes.error.message);
+    if (minStockRes.error) showToast("Ошибка загрузки мин. остатков готового: " + minStockRes.error.message);
     setOrders(ordersRes.data || []);
     setItems(itemsRes.data || []);
     setProducts(productsRes.data || []);
+    setCrmOrders(crmOrdersRes.data || []);
+    setSaleMovements(movementsRes.data || []);
+    setEconomicsSettings(settingsRes.data || null);
+    setRawItems(rawItemsRes.data || []);
+    setRoastBatches(roastRes.data || []);
+    setBlendBatches(blendRes.data || []);
+    setFinishedMinStock(minStockRes.data || []);
     setReviews(reviewsRes.data || []);
     setProductionQueue(productionRes.data || []);
     setLoading(false);
@@ -113,6 +144,51 @@ export default function ShopAnalytics() {
   const current = computeStats(range);
   const previous = computeStats(prevRange);
   const yearAgo = computeStats(yearAgoRange);
+
+  const itemCategoryById = useMemo(() => {
+    const map = {};
+    rawItems.forEach(it => { map[it.id] = it.category; });
+    return map;
+  }, [rawItems]);
+
+  const profitStats = useMemo(() => {
+    if (!economicsSettings) return { profit: 0, avgMargin: 0 };
+    const paidIds = new Set(current.paid.map(o => o.id));
+    const crmIdToShopId = new Map();
+    crmOrders.forEach(co => { if (paidIds.has(co.shop_order_id)) crmIdToShopId.set(co.id, co.shop_order_id); });
+
+    const perOrder = new Map();
+    current.paid.forEach(o => perOrder.set(o.id, { bean: 0, bag: 0, label: 0, box: 0, hasBox: false }));
+
+    saleMovements.forEach(m => {
+      if (m.movement_type !== "sale") return;
+      let shopId = null;
+      if (crmIdToShopId.has(m.reference)) shopId = crmIdToShopId.get(m.reference);
+      else if (perOrder.has(m.reference)) shopId = m.reference;
+      if (!shopId) return;
+      const acc = perOrder.get(shopId);
+      const cost = Math.abs(Number(m.qty_change)) * Number(m.unit_cost || 0);
+      if (m.unit === "kg") { acc.bean += cost; return; }
+      const cat = itemCategoryById[m.item_id];
+      if (cat === "labels") acc.label += cost;
+      else if (cat === "shipping_materials") { acc.box += cost; acc.hasBox = true; }
+      else if (cat) acc.bag += cost;
+    });
+
+    let totalProfit = 0, marginSum = 0, marginCount = 0;
+    current.paid.forEach(o => {
+      const acc = perOrder.get(o.id) || { bean: 0, bag: 0, label: 0, box: 0, hasBox: false };
+      const box = acc.hasBox ? acc.box : Number(economicsSettings.shipping_packaging_cost) || 0;
+      const revenue = Number(o.total) || 0;
+      const commission = revenue * (Number(economicsSettings.payment_commission_pct) || 0) / 100;
+      const shipping = Number(economicsSettings.shipping_cost_for_us) || 0;
+      const profit = revenue - acc.bean - acc.bag - acc.label - box - shipping - commission;
+      totalProfit += profit;
+      if (revenue > 0) { marginSum += (profit / revenue) * 100; marginCount++; }
+    });
+
+    return { profit: totalProfit, avgMargin: marginCount ? marginSum / marginCount : 0 };
+  }, [current.paid, crmOrders, saleMovements, itemCategoryById, economicsSettings]);
 
   const revenueByBucket = useMemo(() => {
     const days = rangeMs / DAY_MS;
@@ -179,14 +255,38 @@ export default function ShopAnalytics() {
     const lowReviews = reviews.filter(r => r.status !== "rejected");
     const productionOrderKeys = new Set(productionQueue.map(o => o.shop_order_id || o.id));
     const productionKg = productionQueue.reduce((s, o) => s + (Number(o.weight) || 0) / 1000, 0);
-    return { failedPayments, outOfStock, lowReviews, productionOrderCount: productionOrderKeys.size, productionKg };
-  }, [orders, products, reviews, productionQueue]);
+
+    const lowRawStock = rawItems.filter(it => Number(it.min_stock) > 0 && Number(it.stock_qty) <= Number(it.min_stock));
+
+    const minStockByName = {};
+    finishedMinStock.forEach(r => { minStockByName[r.name] = Number(r.min_stock); });
+    const finishedStockByName = new Map();
+    roastBatches.forEach(b => finishedStockByName.set(b.sort_name, (finishedStockByName.get(b.sort_name) || 0) + Number(b.remaining_kg)));
+    blendBatches.forEach(b => finishedStockByName.set(b.blend_name, (finishedStockByName.get(b.blend_name) || 0) + Number(b.remaining_kg)));
+    const lowFinishedStock = [...finishedStockByName.entries()]
+      .filter(([name, kg]) => (minStockByName[name] || 0) > 0 && kg <= minStockByName[name])
+      .map(([name, kg]) => ({ name, kg }));
+
+    const oldBatches = [
+      ...roastBatches.filter(b => Number(b.remaining_kg) > 0 && new Date(b.roast_date) < since30).map(b => ({ name: b.sort_name, date: b.roast_date })),
+      ...blendBatches.filter(b => Number(b.remaining_kg) > 0 && new Date(b.mix_date) < since30).map(b => ({ name: b.blend_name, date: b.mix_date })),
+    ];
+
+    const shortages = saleMovements.filter(m => m.movement_type === "shortage" && new Date(m.created_at) >= since30);
+
+    return {
+      failedPayments, outOfStock, lowReviews, productionOrderCount: productionOrderKeys.size, productionKg,
+      lowRawStock, lowFinishedStock, oldBatches, shortages,
+    };
+  }, [orders, products, reviews, productionQueue, rawItems, finishedMinStock, roastBatches, blendBatches, saleMovements]);
 
   const statCards = [
     { label: "Выручка", value: fmtMoney(current.revenue), prev: pctDelta(current.revenue, previous.revenue), ya: pctDelta(current.revenue, yearAgo.revenue) },
     { label: "Заказов", value: fmtInt(current.orderCount), prev: pctDelta(current.orderCount, previous.orderCount), ya: pctDelta(current.orderCount, yearAgo.orderCount) },
     { label: "Средний чек", value: fmtMoney(current.avgCheck), prev: pctDelta(current.avgCheck, previous.avgCheck), ya: pctDelta(current.avgCheck, yearAgo.avgCheck) },
     { label: "Конверсия оплат", value: `${current.conversion.toFixed(0)}%`, prev: pctDelta(current.conversion, previous.conversion), ya: pctDelta(current.conversion, yearAgo.conversion) },
+    { label: "Прибыль за период", value: fmtMoney(profitStats.profit) },
+    { label: "Средняя маржа заказа", value: `${profitStats.avgMargin.toFixed(0)}%` },
   ];
 
   const maxRevenue = Math.max(1, ...revenueByBucket.map(b => b.value));
@@ -303,6 +403,27 @@ export default function ShopAnalytics() {
                   <AttentionBlock
                     icon="🟤" label="Ждут производства" count={attention.productionOrderCount} color="#78350F"
                     items={[`${attention.productionKg.toFixed(1)} кг зерна к отправке`]}
+                  />
+                )}
+                {(attention.lowRawStock.length + attention.lowFinishedStock.length) > 0 && (
+                  <AttentionBlock
+                    icon="🟠" label="Остаток ниже минимума" count={attention.lowRawStock.length + attention.lowFinishedStock.length} color="#B45309"
+                    items={[
+                      ...attention.lowRawStock.slice(0, 3).map(it => `${it.name} (сырьё): ${Number(it.stock_qty).toFixed(1)}`),
+                      ...attention.lowFinishedStock.slice(0, 3).map(it => `${it.name} (готовое): ${it.kg.toFixed(1)} кг`),
+                    ].slice(0, 5)}
+                  />
+                )}
+                {attention.oldBatches.length > 0 && (
+                  <AttentionBlock
+                    icon="🟡" label="Партии старше 30 дней" count={attention.oldBatches.length} color="#92400E"
+                    items={attention.oldBatches.slice(0, 5).map(b => `${b.name} от ${new Date(b.date).toLocaleDateString("ru-RU")}`)}
+                  />
+                )}
+                {attention.shortages.length > 0 && (
+                  <AttentionBlock
+                    icon="🔴" label="Нехватки при списании (30 дн)" count={attention.shortages.length} color="#DC2626"
+                    items={attention.shortages.slice(0, 5).map(m => m.comment || "Нехватка при продаже")}
                   />
                 )}
               </div>

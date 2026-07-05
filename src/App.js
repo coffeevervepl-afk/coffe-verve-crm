@@ -7,6 +7,7 @@ import ShopReviews from "./modules/shop/ShopReviews";
 import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 import ShopCustomers from "./modules/shop/ShopCustomers";
 import ShopAnalytics from "./modules/shop/ShopAnalytics";
+import WarehouseRaw from "./modules/warehouse/WarehouseRaw";
 import Login from "./modules/auth/Login";
 import SetPassword from "./modules/auth/SetPassword";
 
@@ -681,7 +682,7 @@ function PassportPage({ token }) {
 // ============================================================
 // "staff" (Сотрудники) is intentionally never delegable — always owner-only,
 // regardless of what's in permissions.modules.
-const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics"];
+const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics", "warehouse_raw"];
 
 function canSeeModule(currentUser, key) {
   if (!currentUser) return false;
@@ -824,6 +825,7 @@ function CRMApp({ session }) {
         {page === "loyalty" && <LoyaltyAdmin t={t} />}
         {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
         {page === "shop_analytics" && <ShopAnalytics />}
+        {page === "warehouse_raw" && <WarehouseRaw />}
       </div>
     </div>
   );
@@ -901,6 +903,9 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "shop_customers", label: "Покупатели" },
     { key: "shop_analytics", label: "Аналитика магазина" },
   ].filter(item => canSee(item.key));
+  const warehouseItems = [
+    { key: "warehouse_raw", label: "Склад: Сырьё" },
+  ].filter(item => canSee(item.key));
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
     clients: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
@@ -915,6 +920,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     shop_products: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
     shop_customers: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
     shop_analytics: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    warehouse_raw: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8V21H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>,
   };
   const renderItem = (item) => (
     <div key={item.key}
@@ -937,6 +943,8 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
         {coreItems.map(renderItem)}
         <div className="nav-section-label">Магазин</div>
         {shopItems.map(renderItem)}
+        <div className="nav-section-label">Склад</div>
+        {warehouseItems.map(renderItem)}
       </nav>
       <div className="sidebar-bottom">
         <div className="lang-switcher">
@@ -2372,6 +2380,7 @@ const STAFF_MODULES = [
   { key: "loyalty", label: "Лояльность" },
   { key: "shop_customers", label: "Покупатели" },
   { key: "shop_analytics", label: "Аналитика магазина" },
+  { key: "warehouse_raw", label: "Склад: Сырьё" },
 ];
 
 async function callStaffAdmin(action, payload) {

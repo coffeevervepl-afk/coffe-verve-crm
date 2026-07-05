@@ -8,6 +8,7 @@ import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 import ShopCustomers from "./modules/shop/ShopCustomers";
 import ShopAnalytics from "./modules/shop/ShopAnalytics";
 import WarehouseRaw from "./modules/warehouse/WarehouseRaw";
+import Production from "./modules/warehouse/Production";
 import Login from "./modules/auth/Login";
 import SetPassword from "./modules/auth/SetPassword";
 
@@ -682,7 +683,7 @@ function PassportPage({ token }) {
 // ============================================================
 // "staff" (Сотрудники) is intentionally never delegable — always owner-only,
 // regardless of what's in permissions.modules.
-const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics", "warehouse_raw"];
+const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics", "warehouse_raw", "production"];
 
 function canSeeModule(currentUser, key) {
   if (!currentUser) return false;
@@ -826,6 +827,7 @@ function CRMApp({ session }) {
         {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
         {page === "shop_analytics" && <ShopAnalytics />}
         {page === "warehouse_raw" && <WarehouseRaw />}
+        {page === "production" && <Production />}
       </div>
     </div>
   );
@@ -905,6 +907,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   ].filter(item => canSee(item.key));
   const warehouseItems = [
     { key: "warehouse_raw", label: "Склад: Сырьё" },
+    { key: "production", label: "Производство" },
   ].filter(item => canSee(item.key));
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -921,6 +924,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     shop_customers: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
     shop_analytics: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
     warehouse_raw: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8V21H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>,
+    production: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 20h20"/><path d="M4 20V10l4-4 4 4 4-6 4 6v10"/></svg>,
   };
   const renderItem = (item) => (
     <div key={item.key}
@@ -941,10 +945,10 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
       </div>
       <nav className="sidebar-nav">
         {coreItems.map(renderItem)}
-        <div className="nav-section-label">Магазин</div>
-        {shopItems.map(renderItem)}
         <div className="nav-section-label">Склад</div>
         {warehouseItems.map(renderItem)}
+        <div className="nav-section-label">Магазин</div>
+        {shopItems.map(renderItem)}
       </nav>
       <div className="sidebar-bottom">
         <div className="lang-switcher">
@@ -2381,6 +2385,7 @@ const STAFF_MODULES = [
   { key: "shop_customers", label: "Покупатели" },
   { key: "shop_analytics", label: "Аналитика магазина" },
   { key: "warehouse_raw", label: "Склад: Сырьё" },
+  { key: "production", label: "Производство" },
 ];
 
 async function callStaffAdmin(action, payload) {

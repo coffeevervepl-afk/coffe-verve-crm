@@ -56,6 +56,7 @@ export default function ShopAnalytics() {
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [productionQueue, setProductionQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("30d");
   const [customFrom, setCustomFrom] = useState("");
@@ -69,18 +70,21 @@ export default function ShopAnalytics() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [ordersRes, itemsRes, productsRes, reviewsRes] = await Promise.all([
+    const [ordersRes, itemsRes, productsRes, reviewsRes, productionRes] = await Promise.all([
       supabase.from("shop_orders").select("id, created_at, total, payment_status, discount_amount, customer_email, shop_user_id"),
       supabase.from("shop_order_items").select("order_id, product_name, weight, quantity, line_total"),
       supabase.from("shop_products").select("id, name_ru, stock_status").eq("is_active", true),
       supabase.from("shop_reviews").select("id, author_name, rating, review_text, status, created_at").lte("rating", 2),
+      supabase.from("orders").select("id, weight, shop_order_id").in("status", ["new", "processing"]),
     ]);
     if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
     if (itemsRes.error) showToast("Ошибка загрузки позиций: " + itemsRes.error.message);
+    if (productionRes.error) showToast("Ошибка загрузки очереди производства: " + productionRes.error.message);
     setOrders(ordersRes.data || []);
     setItems(itemsRes.data || []);
     setProducts(productsRes.data || []);
     setReviews(reviewsRes.data || []);
+    setProductionQueue(productionRes.data || []);
     setLoading(false);
   }, []);
 
@@ -173,8 +177,10 @@ export default function ShopAnalytics() {
     const failedPayments = orders.filter(o => o.payment_status === "failed" && new Date(o.created_at) >= since30);
     const outOfStock = products.filter(p => p.stock_status === "out");
     const lowReviews = reviews.filter(r => r.status !== "rejected");
-    return { failedPayments, outOfStock, lowReviews };
-  }, [orders, products, reviews]);
+    const productionOrderKeys = new Set(productionQueue.map(o => o.shop_order_id || o.id));
+    const productionKg = productionQueue.reduce((s, o) => s + (Number(o.weight) || 0) / 1000, 0);
+    return { failedPayments, outOfStock, lowReviews, productionOrderCount: productionOrderKeys.size, productionKg };
+  }, [orders, products, reviews, productionQueue]);
 
   const statCards = [
     { label: "Выручка", value: fmtMoney(current.revenue), prev: pctDelta(current.revenue, previous.revenue), ya: pctDelta(current.revenue, yearAgo.revenue) },
@@ -293,6 +299,12 @@ export default function ShopAnalytics() {
                   icon="🟡" label="Отзывы 1–2★" count={attention.lowReviews.length} color="#92400E"
                   items={attention.lowReviews.slice(0, 5).map(r => `${r.author_name}: ${r.review_text.slice(0, 40)}${r.review_text.length > 40 ? "…" : ""}`)}
                 />
+                {attention.productionOrderCount > 0 && (
+                  <AttentionBlock
+                    icon="🟤" label="Ждут производства" count={attention.productionOrderCount} color="#78350F"
+                    items={[`${attention.productionKg.toFixed(1)} кг зерна к отправке`]}
+                  />
+                )}
               </div>
             </div>
           </>

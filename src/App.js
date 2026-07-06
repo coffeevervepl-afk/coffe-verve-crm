@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "qrcode";
 import { supabase } from "./lib/supabaseClient";
 import ShopOrders from "./modules/shop/ShopOrders";
@@ -237,6 +237,20 @@ const styles = `
   .nav-item.active { color: #fff; background: rgba(34,197,94,0.15); border-left-color: #22C55E; }
   .nav-badge { background: #EF4444; color: #fff; border-radius: 10px; font-size: 10px; font-weight: 700; padding: 1px 6px; margin-left: auto; min-width: 18px; text-align: center; animation: pulse-badge 2s infinite; }
   @keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+  .order-toast-stack { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column-reverse; gap: 10px; max-width: 340px; }
+  .order-toast { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.16); padding: 14px 16px; position: relative; animation: toast-in 0.25s ease-out; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .order-toast-close { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; font-size: 15px; color: #9CA3AF; line-height: 1; }
+  .order-toast-close:hover { color: #4B5563; }
+  .order-toast-title { font-size: 13px; font-weight: 700; color: #1F2937; margin-right: 14px; }
+  .order-toast-body { font-size: 12px; color: #6B7280; margin-top: 4px; line-height: 1.4; }
+  .order-toast-action { margin-top: 10px; background: #2B58A1; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .order-toast-action:hover { background: #234a89; }
+  .sound-toggle-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sound-toggle-switch { width: 30px; height: 17px; border-radius: 10px; background: #D1D5DB; position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+  .sound-toggle-switch.on { background: #22C55E; }
+  .sound-toggle-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+  .sound-toggle-switch.on::after { transform: translateX(13px); }
   .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
   .sidebar-bottom { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
   .lang-switcher { display: flex; gap: 5px; }
@@ -696,6 +710,70 @@ function canSeeModule(currentUser, key) {
 }
 
 // ============================================================
+// ORDER NOTIFICATION SOUND
+// ============================================================
+// Browsers block audio autoplay until the user interacts with the page at
+// least once, so the AudioContext is created lazily on the first click/
+// keydown instead of on mount. play() is a no-op (silent, no throw) if that
+// hasn't happened yet — the toast still shows regardless, per spec.
+function useOrderSound() {
+  const [enabled, setEnabledState] = useState(() => localStorage.getItem("cv_order_sound") !== "0");
+  const enabledRef = useRef(enabled);
+  const ctxRef = useRef(null);
+
+  const setEnabled = useCallback((value) => {
+    setEnabledState(prev => {
+      const next = typeof value === "function" ? value(prev) : value;
+      enabledRef.current = next;
+      localStorage.setItem("cv_order_sound", next ? "1" : "0");
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    function unlock() {
+      if (!ctxRef.current) {
+        try { ctxRef.current = new (window.AudioContext || window.webkitAudioContext)(); } catch { /* unsupported */ }
+      } else if (ctxRef.current.state === "suspended") {
+        ctxRef.current.resume();
+      }
+    }
+    document.addEventListener("click", unlock);
+    document.addEventListener("keydown", unlock);
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
+  // Stable identity (empty deps) so effects that call it don't need to list
+  // it as a dependency and re-subscribe on every toggle — enabledRef always
+  // reflects the latest state.
+  const play = useCallback(() => {
+    if (!enabledRef.current) return;
+    const ctx = ctxRef.current;
+    if (!ctx || ctx.state === "suspended") return;
+    const now = ctx.currentTime;
+    [880, 1318.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = now + i * 0.1;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.2, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    });
+  }, []);
+
+  return { enabled, setEnabled, play };
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 function CRMApp({ session }) {
@@ -704,10 +782,28 @@ function CRMApp({ session }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [newWarranties, setNewWarranties] = useState(0);
   const [pendingReviews, setPendingReviews] = useState(0);
+  const [newCrmOrders, setNewCrmOrders] = useState(0);
+  const [paidShopOrders, setPaidShopOrders] = useState(0);
+  const [orderToasts, setOrderToasts] = useState([]);
+  const toastTimers = useRef({});
+  const orderSound = useOrderSound();
   const [openShopOrderId, setOpenShopOrderId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const t = T[lang];
+
+  function dismissToast(id) {
+    clearTimeout(toastTimers.current[id]);
+    delete toastTimers.current[id];
+    setOrderToasts(prev => prev.filter(x => x.id !== id));
+  }
+
+  function pushOrderToast(toastData) {
+    setOrderToasts(prev => [...prev, toastData]);
+    toastTimers.current[toastData.id] = setTimeout(() => dismissToast(toastData.id), 8000);
+  }
+
+  useEffect(() => () => { Object.values(toastTimers.current).forEach(clearTimeout); }, []);
 
   useEffect(() => {
     supabase.from("users").select("*").eq("id", session.user.id).maybeSingle()
@@ -801,14 +897,105 @@ function CRMApp({ session }) {
     }
   }, [page]);
 
+  // Бейдж «Заказы»: новые CRM-заказы + Realtime. Доступен только тем, у кого
+  // есть права на модуль orders — обжарщик без доступа к заказам счётчик не видит.
+  useEffect(() => {
+    if (!userLoaded || !canSeeModule(currentUser, "orders")) { setNewCrmOrders(0); return; }
+    async function fetchCount() {
+      const { count } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "new");
+      setNewCrmOrders(count || 0);
+    }
+    fetchCount();
+    const channel = supabase
+      .channel("orders-badge-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchCount())
+      .subscribe();
+    const interval = setInterval(fetchCount, 30000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [userLoaded, currentUser]); // eslint-disable-line
+
+  // Бейдж «Заказы магазина»: оплаченные, но ещё не взятые в обработку
+  // (payment_status=paid, status в new/confirmed) + Realtime.
+  useEffect(() => {
+    if (!userLoaded || !canSeeModule(currentUser, "shop_orders")) { setPaidShopOrders(0); return; }
+    async function fetchCount() {
+      const { count } = await supabase
+        .from("shop_orders")
+        .select("*", { count: "exact", head: true })
+        .eq("payment_status", "paid")
+        .in("status", ["new", "confirmed"]);
+      setPaidShopOrders(count || 0);
+    }
+    fetchCount();
+    const channel = supabase
+      .channel("shop_orders-badge-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shop_orders" }, () => fetchCount())
+      .subscribe();
+    const interval = setInterval(fetchCount, 30000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [userLoaded, currentUser]); // eslint-disable-line
+
+  // Звук + тост при новом оплаченном заказе магазина: срабатывает либо на
+  // INSERT сразу с payment_status=paid (напр. оплата наличными), либо на
+  // UPDATE, где payment_status переходит в paid из другого значения
+  // (обычный путь — вебхук Stripe подтверждает оплату после создания заказа
+  // со статусом pending). REPLICA IDENTITY FULL на shop_orders обязателен,
+  // иначе payload.old не содержит предыдущего payment_status и переход не
+  // отличить от повторного UPDATE уже оплаченного заказа.
+  useEffect(() => {
+    if (!userLoaded || !canSeeModule(currentUser, "shop_orders")) return;
+
+    async function handleEvent(payload) {
+      const row = payload.new;
+      if (!row) return;
+      const wasPaid = payload.old?.payment_status === "paid";
+      const isPaid = row.payment_status === "paid";
+      if (!isPaid || (payload.eventType === "UPDATE" && wasPaid)) return;
+
+      const { data: items } = await supabase
+        .from("shop_order_items")
+        .select("product_name, quantity")
+        .eq("shop_order_id", row.id);
+      const itemsText = (items || [])
+        .map(i => i.quantity > 1 ? `${i.product_name} ×${i.quantity}` : i.product_name)
+        .join(", ") || "—";
+
+      pushOrderToast({
+        id: `${row.id}-${row.updated_at || row.created_at}`,
+        orderId: row.id,
+        orderNumber: row.order_number,
+        itemsText,
+        total: row.total,
+      });
+      orderSound.play();
+    }
+
+    const channel = supabase
+      .channel("shop_orders-notify-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "shop_orders" }, handleEvent)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "shop_orders" }, handleEvent)
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [userLoaded, currentUser]); // eslint-disable-line
+
   if (!userLoaded) return <div style={{ minHeight: "100vh", background: "#F4F5F7" }} />;
 
   return (
     <div className="crm-root">
-      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} currentUser={currentUser} />
+      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} newCrmOrders={newCrmOrders} paidShopOrders={paidShopOrders} currentUser={currentUser} />
       <div className="main">
         <div className="global-header">
-          <UserMenu currentUser={currentUser} onSignOut={signOut} />
+          <UserMenu currentUser={currentUser} onSignOut={signOut} soundEnabled={orderSound.enabled} onToggleSound={orderSound.setEnabled} />
         </div>
         {page === "dashboard" && canSeeModule(currentUser, "dashboard") && <Dashboard t={t} setPage={setPage} />}
         {page === "no_access" && (
@@ -831,6 +1018,23 @@ function CRMApp({ session }) {
         {page === "production" && <Production />}
         {page === "warehouse_finished" && <WarehouseFinished />}
       </div>
+      {orderToasts.length > 0 && (
+        <div className="order-toast-stack">
+          {orderToasts.map(ot => (
+            <div key={ot.id} className="order-toast">
+              <button className="order-toast-close" onClick={() => dismissToast(ot.id)}>×</button>
+              <div className="order-toast-title">🛒 Новый заказ №{ot.orderNumber}</div>
+              <div className="order-toast-body">{ot.itemsText}, {fmtMoney(ot.total)}</div>
+              <button
+                className="order-toast-action"
+                onClick={() => { setOpenShopOrderId(ot.orderId); setPage("shop_orders"); dismissToast(ot.id); }}
+              >
+                Открыть
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -885,7 +1089,7 @@ function AuthGate() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, currentUser }) {
+function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, newCrmOrders, paidShopOrders, currentUser }) {
   function canSee(key) {
     return canSeeModule(currentUser, key);
   }
@@ -893,13 +1097,13 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   const coreItems = [
     { key: "dashboard", label: t.dashboard },
     { key: "clients", label: t.clients },
-    { key: "orders", label: t.orders },
+    { key: "orders", label: t.orders, badge: newCrmOrders },
     { key: "products", label: t.products },
     { key: "warranties", label: t.warranties },
     { key: "staff", label: t.staff },
   ].filter(item => canSee(item.key));
   const shopItems = [
-    { key: "shop_orders", label: "Заказы магазина" },
+    { key: "shop_orders", label: "Заказы магазина", badge: paidShopOrders },
     { key: "shop_products", label: "Товары магазина" },
     { key: "reviews", label: t.reviews, badge: pendingReviews },
     { key: "discounts", label: "Промокоды" },
@@ -967,7 +1171,7 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   );
 }
 
-function UserMenu({ currentUser, onSignOut }) {
+function UserMenu({ currentUser, onSignOut, soundEnabled, onToggleSound }) {
   const [open, setOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
 
@@ -989,6 +1193,13 @@ function UserMenu({ currentUser, onSignOut }) {
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 39 }} onClick={() => setOpen(false)} />
           <div className="channel-menu" style={{ top: "calc(100% + 4px)", right: 0 }}>
+            <div className="channel-item sound-toggle-item" onClick={() => onToggleSound(v => !v)}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Звук новых заказов
+              </span>
+              <span className={`sound-toggle-switch ${soundEnabled ? "on" : ""}`} />
+            </div>
             <div className="channel-item" onClick={() => { setShowChangePw(true); setOpen(false); }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
               Сменить пароль

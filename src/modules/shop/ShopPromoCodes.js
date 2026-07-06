@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
@@ -30,7 +31,8 @@ const emptyForm = {
   category: "manual", first_order_only: false, product_id: "",
 };
 
-export default function ShopPromoCodes() {
+export default function ShopPromoCodes({ lang }) {
+  const t = T[lang];
   const [promos, setPromos] = useState([]);
   const [products, setProducts] = useState([]);
   const [uses30d, setUses30d] = useState(0);
@@ -56,8 +58,8 @@ export default function ShopPromoCodes() {
       supabase.from("promo_code_uses").select("id", { count: "exact", head: true }).gte("used_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()),
       supabase.from("shop_orders").select("discount_amount, total").gt("discount_amount", 0),
     ]);
-    if (promosRes.error) showToast("Ошибка загрузки промокодов: " + promosRes.error.message);
-    if (ordersRes.error) showToast("Ошибка загрузки статистики: " + ordersRes.error.message);
+    if (promosRes.error) showToast(t.promo_err_load + promosRes.error.message);
+    if (ordersRes.error) showToast(t.promo_err_load_stats + ordersRes.error.message);
     setPromos(promosRes.data || []);
     setProducts(productsRes.data || []);
     setUses30d(usesRes.count || 0);
@@ -65,7 +67,7 @@ export default function ShopPromoCodes() {
     setDiscountGiven(orders.reduce((s, o) => s + Number(o.discount_amount || 0), 0));
     setRevenueWithCodes(orders.reduce((s, o) => s + Number(o.total || 0), 0));
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -92,7 +94,7 @@ export default function ShopPromoCodes() {
       is_active: true,
     });
     setSaving(false);
-    if (error) { showToast("Не удалось создать промокод: " + error.message); return; }
+    if (error) { showToast(t.promo_err_create + error.message); return; }
     setShowModal(false);
     setForm(emptyForm);
     loadAll();
@@ -100,14 +102,14 @@ export default function ShopPromoCodes() {
 
   async function toggleActive(promo) {
     const { error } = await supabase.from("shop_promo_codes").update({ is_active: !promo.is_active }).eq("id", promo.id);
-    if (error) { showToast("Не удалось сохранить: " + error.message); return; }
+    if (error) { showToast(t.wf_err_save + error.message); return; }
     setPromos(prev => prev.map(p => p.id === promo.id ? { ...p, is_active: !p.is_active } : p));
   }
 
   async function deletePromo(id) {
-    if (!window.confirm("Удалить промокод?")) return;
+    if (!window.confirm(t.promo_confirm_delete)) return;
     const { error } = await supabase.from("shop_promo_codes").delete().eq("id", id);
-    if (error) { showToast("Не удалось удалить: " + error.message); return; }
+    if (error) { showToast(t.err_delete_staff + error.message); return; }
     setPromos(prev => prev.filter(p => p.id !== id));
   }
 
@@ -116,39 +118,39 @@ export default function ShopPromoCodes() {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Промокоды</span>
+        <span className="topbar-title">{t.nav_promo_codes}</span>
         <div className="topbar-actions">
-          <button className="btn btn-secondary" onClick={() => setShowBulk(true)}>🎲 Массовая генерация</button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Создать</button>
+          <button className="btn btn-secondary" onClick={() => setShowBulk(true)}>{t.promo_bulk_btn}</button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>{t.promo_create_btn}</button>
         </div>
       </div>
       <div className="content">
         <div className="stats-grid" style={{ marginBottom: 18 }}>
           <div className="stat-card">
-            <div><div className="stat-label">Активных</div><div className="stat-value">{activeCount}</div></div>
+            <div><div className="stat-label">{t.promo_active_stat}</div><div className="stat-value">{activeCount}</div></div>
           </div>
           <div className="stat-card">
-            <div><div className="stat-label">Использований 30 дн</div><div className="stat-value">{uses30d}</div></div>
+            <div><div className="stat-label">{t.promo_uses_30d_stat}</div><div className="stat-value">{uses30d}</div></div>
           </div>
           <div className="stat-card">
-            <div><div className="stat-label">Скидок выдано</div><div className="stat-value">{fmtMoney(discountGiven)}</div></div>
+            <div><div className="stat-label">{t.promo_discount_given_stat}</div><div className="stat-value">{fmtMoney(discountGiven)}</div></div>
           </div>
           <div className="stat-card">
-            <div><div className="stat-label">Выручка с кодами</div><div className="stat-value">{fmtMoney(revenueWithCodes)}</div></div>
+            <div><div className="stat-label">{t.promo_revenue_with_codes_stat}</div><div className="stat-value">{fmtMoney(revenueWithCodes)}</div></div>
           </div>
         </div>
 
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Код</th><th>Тип</th><th>Скидка</th><th>Условия</th>
-                  <th>Использован</th><th>Срок</th><th>Активен</th><th></th>
+                  <th>{t.promo_code_col}</th><th>{t.wh_type_col}</th><th>{t.promo_discount_col}</th><th>{t.promo_conditions_col}</th>
+                  <th>{t.promo_used_col}</th><th>{t.promo_term_col}</th><th>{t.promo_active_col}</th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {promos.length === 0 && <tr><td colSpan={8}><div className="empty-state">Нет промокодов</div></td></tr>}
+                {promos.length === 0 && <tr><td colSpan={8}><div className="empty-state">{t.promo_no_promos}</div></td></tr>}
                 {promos.map(p => {
                   const isAuto = AUTO_CATEGORIES.includes(p.category);
                   return (
@@ -158,15 +160,15 @@ export default function ShopPromoCodes() {
                         <span className="badge" style={CATEGORY_COLORS[p.category] || CATEGORY_COLORS.manual}>
                           {CATEGORY_LABELS[p.category] || p.category}
                         </span>
-                        {isAuto && <span className="badge" style={{ background: "#F3F4F6", color: "#9CA3AF", marginLeft: 4 }}>авто</span>}
+                        {isAuto && <span className="badge" style={{ background: "#F3F4F6", color: "#9CA3AF", marginLeft: 4 }}>{t.promo_auto_badge}</span>}
                       </td>
                       <td style={{ fontWeight: 600, color: "#16A34A" }}>
-                        {p.type === "free_shipping" ? "Бесплатная доставка" : p.type === "fixed" ? `−${p.value} zł` : `−${p.value}%`}
+                        {p.type === "free_shipping" ? t.promo_free_shipping : p.type === "fixed" ? `−${p.value} zł` : `−${p.value}%`}
                       </td>
                       <td style={{ fontSize: 11, color: "#6B7280" }}>
-                        {p.min_order ? `от ${fmtMoney(p.min_order)}` : ""}
-                        {p.first_order_only && <div>только 1-й заказ</div>}
-                        {p.shop_products?.name_ru && <div>товар: {p.shop_products.name_ru}</div>}
+                        {p.min_order ? `${t.promo_from_amount}${fmtMoney(p.min_order)}` : ""}
+                        {p.first_order_only && <div>{t.promo_first_order_only_tag}</div>}
+                        {p.shop_products?.name_ru && <div>{t.promo_product_tag}{p.shop_products.name_ru}</div>}
                         {!p.min_order && !p.first_order_only && !p.shop_products?.name_ru && "—"}
                       </td>
                       <td style={{ fontSize: 12 }}>
@@ -184,7 +186,7 @@ export default function ShopPromoCodes() {
                       </td>
                       <td>
                         {!isAuto && (
-                          <button className="action-icon-btn danger" onClick={() => deletePromo(p.id)} title="Удалить">
+                          <button className="action-icon-btn danger" onClick={() => deletePromo(p.id)} title={t.delete}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
                             </svg>
@@ -202,42 +204,42 @@ export default function ShopPromoCodes() {
 
       {showModal && (
         <CreateModal
-          form={form} setForm={setForm} products={products} saving={saving}
+          t={t} form={form} setForm={setForm} products={products} saving={saving}
           onGenerate={generateCode} onSave={savePromo} onClose={() => { setShowModal(false); setForm(emptyForm); }}
         />
       )}
-      {showBulk && <BulkGenerateModal onClose={() => setShowBulk(false)} onDone={() => { setShowBulk(false); loadAll(); }} onError={showToast} />}
+      {showBulk && <BulkGenerateModal t={t} onClose={() => setShowBulk(false)} onDone={() => { setShowBulk(false); loadAll(); }} onError={showToast} />}
       {toast && <div className="print-toast">{toast}</div>}
     </div>
   );
 }
 
-function CreateModal({ form, setForm, products, saving, onGenerate, onSave, onClose }) {
+function CreateModal({ t, form, setForm, products, saving, onGenerate, onSave, onClose }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">Создать промокод</div>
+        <div className="modal-title">{t.promo_create_title}</div>
         <div className="form-group">
-          <label className="form-label">Код</label>
+          <label className="form-label">{t.promo_code_col}</label>
           <div style={{ display: "flex", gap: 8 }}>
             <input className="input" style={{ flex: 1 }} value={form.code}
               onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
               placeholder="CV-XXXXXXXX" />
-            <button className="btn btn-secondary" onClick={onGenerate}>🎲 Сгенерировать</button>
+            <button className="btn btn-secondary" onClick={onGenerate}>{t.promo_generate_btn}</button>
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Тип скидки</label>
+            <label className="form-label">{t.promo_discount_type_label}</label>
             <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-              <option value="fixed">Фикс, zł</option>
-              <option value="percent">Процент, %</option>
-              <option value="free_shipping">Бесплатная доставка</option>
+              <option value="fixed">{t.promo_fixed_short}</option>
+              <option value="percent">{t.promo_percent_short}</option>
+              <option value="free_shipping">{t.promo_free_shipping}</option>
             </select>
           </div>
           {form.type !== "free_shipping" && (
             <div className="form-group">
-              <label className="form-label">Размер скидки</label>
+              <label className="form-label">{t.promo_discount_size_label}</label>
               <input className="input" type="number" min={1} value={form.value}
                 onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
             </div>
@@ -245,12 +247,12 @@ function CreateModal({ form, setForm, products, saving, onGenerate, onSave, onCl
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Мин. сумма заказа (zł)</label>
+            <label className="form-label">{t.promo_min_order_label}</label>
             <input className="input" type="number" min={0} value={form.min_order}
               onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} />
           </div>
           <div className="form-group">
-            <label className="form-label">Категория</label>
+            <label className="form-label">{t.promo_category}</label>
             <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
               {Object.keys(CATEGORY_LABELS).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -258,25 +260,25 @@ function CreateModal({ form, setForm, products, saving, onGenerate, onSave, onCl
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Только для товара</label>
+            <label className="form-label">{t.promo_only_for_product_label}</label>
             <select className="input" value={form.product_id} onChange={e => setForm(f => ({ ...f, product_id: e.target.value }))}>
-              <option value="">— любой товар —</option>
+              <option value="">{t.promo_any_product_opt}</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name_ru}</option>)}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Лимит использований</label>
+            <label className="form-label">{t.promo_uses_limit_label}</label>
             <input className="input" type="number" min={1} value={form.max_uses}
               onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))} placeholder="∞" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Срок: с</label>
+            <label className="form-label">{t.promo_term_from_label}</label>
             <input className="input" type="date" value={form.valid_from} onChange={e => setForm(f => ({ ...f, valid_from: e.target.value }))} />
           </div>
           <div className="form-group">
-            <label className="form-label">Срок: по</label>
+            <label className="form-label">{t.promo_term_until_label}</label>
             <input className="input" type="date" value={form.valid_until} onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} />
           </div>
         </div>
@@ -286,20 +288,20 @@ function CreateModal({ form, setForm, products, saving, onGenerate, onSave, onCl
               <input type="checkbox" checked={form.one_per_customer} onChange={e => setForm(f => ({ ...f, one_per_customer: e.target.checked }))} />
               <span className="toggle-slider" />
             </span>
-            <span style={{ fontSize: 13, color: "#374151" }}>1 использование на клиента</span>
+            <span style={{ fontSize: 13, color: "#374151" }}>{t.promo_one_use_per_customer_label}</span>
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="toggle-switch">
               <input type="checkbox" checked={form.first_order_only} onChange={e => setForm(f => ({ ...f, first_order_only: e.target.checked }))} />
               <span className="toggle-slider" />
             </span>
-            <span style={{ fontSize: 13, color: "#374151" }}>Только первый заказ</span>
+            <span style={{ fontSize: 13, color: "#374151" }}>{t.promo_first_order_only_label}</span>
           </label>
         </div>
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
           <button className="btn btn-primary" onClick={onSave} disabled={saving || !form.code.trim()}>
-            {saving ? "…" : "Сохранить"}
+            {saving ? "…" : t.save}
           </button>
         </div>
       </div>
@@ -307,7 +309,7 @@ function CreateModal({ form, setForm, products, saving, onGenerate, onSave, onCl
   );
 }
 
-function BulkGenerateModal({ onClose, onDone, onError }) {
+function BulkGenerateModal({ t, onClose, onDone, onError }) {
   const [template, setTemplate] = useState("SUMMER-XXXX");
   const [count, setCount] = useState(20);
   const [type, setType] = useState("fixed");
@@ -318,10 +320,10 @@ function BulkGenerateModal({ onClose, onDone, onError }) {
   const [generated, setGenerated] = useState(null);
 
   async function generate() {
-    if (!template.includes("X")) { onError("В шаблоне должна быть хотя бы одна X"); return; }
+    if (!template.includes("X")) { onError(t.promo_err_template_x); return; }
     setGenerating(true);
     const { data: existing, error: fetchError } = await supabase.from("shop_promo_codes").select("code");
-    if (fetchError) { onError("Ошибка: " + fetchError.message); setGenerating(false); return; }
+    if (fetchError) { onError(t.promo_err_generic + fetchError.message); setGenerating(false); return; }
     const existingCodes = new Set((existing || []).map(r => r.code));
     const codes = new Set();
     let guard = 0;
@@ -337,7 +339,7 @@ function BulkGenerateModal({ onClose, onDone, onError }) {
     }));
     const { error } = await supabase.from("shop_promo_codes").insert(rows);
     setGenerating(false);
-    if (error) { onError("Не удалось создать коды: " + error.message); return; }
+    if (error) { onError(t.promo_err_create_codes + error.message); return; }
     setGenerated(rows);
   }
 
@@ -357,20 +359,20 @@ function BulkGenerateModal({ onClose, onDone, onError }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">Массовая генерация промокодов</div>
+        <div className="modal-title">{t.promo_bulk_title}</div>
         {!generated ? (
           <>
             <div className="form-group">
-              <label className="form-label">Шаблон (X — случайный символ)</label>
+              <label className="form-label">{t.promo_template_label}</label>
               <input className="input" value={template} onChange={e => setTemplate(e.target.value.toUpperCase())} placeholder="SUMMER-XXXX" />
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Количество кодов</label>
+                <label className="form-label">{t.promo_count_label}</label>
                 <input className="input" type="number" min={1} max={1000} value={count} onChange={e => setCount(e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Категория</label>
+                <label className="form-label">{t.promo_category}</label>
                 <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
                   {Object.keys(CATEGORY_LABELS).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -378,45 +380,45 @@ function BulkGenerateModal({ onClose, onDone, onError }) {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Тип скидки</label>
+                <label className="form-label">{t.promo_discount_type_label}</label>
                 <select className="input" value={type} onChange={e => setType(e.target.value)}>
-                  <option value="fixed">Фикс, zł</option>
-                  <option value="percent">Процент, %</option>
-                  <option value="free_shipping">Бесплатная доставка</option>
+                  <option value="fixed">{t.promo_fixed_short}</option>
+                  <option value="percent">{t.promo_percent_short}</option>
+                  <option value="free_shipping">{t.promo_free_shipping}</option>
                 </select>
               </div>
               {type !== "free_shipping" && (
                 <div className="form-group">
-                  <label className="form-label">Размер скидки</label>
+                  <label className="form-label">{t.promo_discount_size_label}</label>
                   <input className="input" type="number" min={1} value={value} onChange={e => setValue(e.target.value)} />
                 </div>
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">Срок действия по</label>
+              <label className="form-label">{t.promo_term_until_short_label}</label>
               <input className="input" type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />
             </div>
             <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10 }}>
-              Каждый код — одноразовый (1 использование на клиента), для рассылок/листовок/QR на пачках.
+              {t.promo_bulk_hint}
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+              <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
               <button className="btn btn-primary" onClick={generate} disabled={generating}>
-                {generating ? "…" : "Сгенерировать"}
+                {generating ? "…" : t.promo_generate_plain}
               </button>
             </div>
           </>
         ) : (
           <>
             <div style={{ fontSize: 13, color: "#374151", marginBottom: 10 }}>
-              Создано кодов: <b>{generated.length}</b>
+              {t.promo_created_count}<b>{generated.length}</b>
             </div>
             <div style={{ maxHeight: 200, overflowY: "auto", background: "#F9FAFB", borderRadius: 8, padding: "8px 10px", fontFamily: "monospace", fontSize: 12, marginBottom: 12 }}>
               {generated.map(r => <div key={r.code}>{r.code}</div>)}
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => { onDone(); }}>Закрыть</button>
-              <button className="btn btn-primary" onClick={downloadCsv}>Скачать CSV</button>
+              <button className="btn btn-secondary" onClick={() => { onDone(); }}>{t.close}</button>
+              <button className="btn btn-primary" onClick={downloadCsv}>{t.promo_download_csv_btn}</button>
             </div>
           </>
         )}

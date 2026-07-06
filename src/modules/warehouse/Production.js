@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const DEFAULT_LOSS_PCT = 15;
 const LOSS_WARN_MIN = 10;
 const LOSS_WARN_MAX = 20;
 
 const fmtMoney = (n) => (n != null ? `${Number(n).toFixed(2)} zł` : "—");
-const fmtKg = (n) => (n != null ? `${Number(n).toFixed(2)} кг` : "—");
+const fmtKg = (n, unit) => (n != null ? `${Number(n).toFixed(2)} ${unit}` : "—");
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("ru-RU") : "—");
 const norm = (s) => (s || "").trim().toLowerCase();
+// Простая подстановка {token} в переводимый шаблон, напр. tpl(t.prod_roast_title, { sort: "Kenya" }).
+function tpl(str, vars) {
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
 
 function computePlan({ pendingOrders, roastBatches, blendBatches, blendIngredients, greenItems }) {
   const requiredByProduct = new Map();
@@ -90,7 +95,8 @@ function computePlan({ pendingOrders, roastBatches, blendBatches, blendIngredien
   return { requiredByProduct, roastRows, blendRows, blendWarnings };
 }
 
-export default function Production() {
+export default function Production({ lang }) {
+  const t = T[lang];
   const [tab, setTab] = useState("queue");
   const [showRoastModal, setShowRoastModal] = useState(false);
   const [showBlendModal, setShowBlendModal] = useState(false);
@@ -108,31 +114,33 @@ export default function Production() {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Производство</span>
+        <span className="topbar-title">{t.prod_title}</span>
         <div className="topbar-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => { setBlendPrefill(null); setShowBlendModal(true); }}>+ Купажирование</button>
-          <button className="btn btn-primary btn-sm" onClick={() => { setRoastPrefill(null); setShowRoastModal(true); }}>+ Новая обжарка</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setBlendPrefill(null); setShowBlendModal(true); }}>{t.prod_blend_btn}</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { setRoastPrefill(null); setShowRoastModal(true); }}>{t.prod_new_roast_btn}</button>
         </div>
       </div>
       <div className="content">
         <div className="tabs-row">
-          <button className={`tab-btn ${tab === "queue" ? "active" : ""}`} onClick={() => setTab("queue")}>Заказы на производство</button>
-          <button className={`tab-btn ${tab === "log" ? "active" : ""}`} onClick={() => setTab("log")}>Журнал производства</button>
+          <button className={`tab-btn ${tab === "queue" ? "active" : ""}`} onClick={() => setTab("queue")}>{t.prod_tab_queue}</button>
+          <button className={`tab-btn ${tab === "log" ? "active" : ""}`} onClick={() => setTab("log")}>{t.prod_tab_log}</button>
         </div>
 
         {tab === "queue" && (
           <QueueTab
             key={refreshKey}
+            t={t}
             showToast={showToast}
             onStartRoast={(prefill) => { setRoastPrefill(prefill); setShowRoastModal(true); }}
             onStartBlend={(prefill) => { setBlendPrefill(prefill); setShowBlendModal(true); }}
           />
         )}
-        {tab === "log" && <ProductionLogTab key={"log" + refreshKey} showToast={showToast} />}
+        {tab === "log" && <ProductionLogTab t={t} key={"log" + refreshKey} showToast={showToast} />}
       </div>
 
       {showRoastModal && (
         <NewRoastModal
+          t={t}
           prefill={roastPrefill}
           onClose={() => setShowRoastModal(false)}
           onDone={() => { setShowRoastModal(false); refresh(); }}
@@ -141,6 +149,7 @@ export default function Production() {
       )}
       {showBlendModal && (
         <NewBlendModal
+          t={t}
           prefill={blendPrefill}
           onClose={() => setShowBlendModal(false)}
           onDone={() => { setShowBlendModal(false); refresh(); }}
@@ -155,7 +164,7 @@ export default function Production() {
 // ============================================================
 // ОЧЕРЕДЬ + ПЛАН ПРОИЗВОДСТВА
 // ============================================================
-function QueueTab({ showToast, onStartRoast, onStartBlend }) {
+function QueueTab({ t, showToast, onStartRoast, onStartBlend }) {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState([]);
   const [plan, setPlan] = useState({ roastRows: [], blendRows: [], blendWarnings: [] });
@@ -171,10 +180,10 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
         supabase.from("blend_batches").select("id, blend_name, mix_date, total_kg, remaining_kg, created_at").order("created_at", { ascending: false }),
         supabase.from("warehouse_items").select("id, name, stock_qty, unit, avg_price_net").eq("category", "green_beans"),
       ]);
-      if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
-      if (roastRes.error) showToast("Ошибка загрузки партий обжарки: " + roastRes.error.message);
-      if (blendRes.error) showToast("Ошибка загрузки купажей: " + blendRes.error.message);
-      if (greenRes.error) showToast("Ошибка загрузки зелёного зерна: " + greenRes.error.message);
+      if (ordersRes.error) showToast(t.prod_err_load_orders + ordersRes.error.message);
+      if (roastRes.error) showToast(t.prod_err_load_roast_batches + roastRes.error.message);
+      if (blendRes.error) showToast(t.wf_err_load_blends + blendRes.error.message);
+      if (greenRes.error) showToast(t.prod_err_load_green + greenRes.error.message);
 
       const pendingOrders = ordersRes.data || [];
       const roastBatches = roastRes.data || [];
@@ -187,7 +196,7 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
       let blendIngredients = [];
       if (neededIds.length) {
         const { data, error } = await supabase.from("blend_batch_ingredients").select("blend_batch_id, sort_name, kg").in("blend_batch_id", neededIds);
-        if (error) showToast("Ошибка загрузки состава купажей: " + error.message);
+        if (error) showToast(t.prod_err_load_recipe + error.message);
         blendIngredients = data || [];
       }
 
@@ -212,29 +221,29 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
     load();
   }, []); // eslint-disable-line
 
-  if (loading) return <div className="empty-state">Загрузка...</div>;
+  if (loading) return <div className="empty-state">{t.loading}</div>;
 
   const planEmpty = plan.roastRows.length === 0 && plan.blendRows.length === 0 && plan.blendWarnings.length === 0;
 
   return (
     <div>
       <div className="stats-grid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 16 }}>
-        <div className="stat-card-big"><div className="big-label">Заказов в очереди</div><div className="big-value">{totalOrders}</div></div>
-        <div className="stat-card-big"><div className="big-label">Кг зерна к отправке</div><div className="big-value">{totalKg.toFixed(1)}</div></div>
+        <div className="stat-card-big"><div className="big-label">{t.prod_orders_in_queue}</div><div className="big-value">{totalOrders}</div></div>
+        <div className="stat-card-big"><div className="big-label">{t.prod_kg_to_roast}</div><div className="big-value">{totalKg.toFixed(1)}</div></div>
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-title">Очередь по сортам/купажам</div>
-        {summary.length === 0 ? <div className="empty-state">Очередь пуста</div> : (
+        <div className="card-title">{t.prod_queue_by_sort}</div>
+        {summary.length === 0 ? <div className="empty-state">{t.prod_queue_empty}</div> : (
           <table className="table">
-            <thead><tr><th>Позиция</th><th>Тип</th><th>Заказов</th><th>Кг</th></tr></thead>
+            <thead><tr><th>{t.whr_position_col}</th><th>{t.wh_type_col}</th><th>{t.prod_orders_col}</th><th>{t.prod_kg_col}</th></tr></thead>
             <tbody>
               {summary.map(r => (
                 <tr key={r.product_id}>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
-                  <td style={{ color: "#6B7280" }}>{r.country === "Купаж" ? "Купаж" : "Сорт"}</td>
+                  <td style={{ color: "#6B7280" }}>{r.country === "Купаж" ? t.wh_blend_type : t.wh_sort_type}</td>
                   <td>{r.orderCount}</td>
-                  <td>{fmtKg(r.kg)}</td>
+                  <td>{fmtKg(r.kg, t.unit_kg)}</td>
                 </tr>
               ))}
             </tbody>
@@ -243,8 +252,8 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
       </div>
 
       <div className="card">
-        <div className="card-title">План производства</div>
-        {planEmpty ? <div className="empty-state">Готового зерна достаточно — производство не требуется</div> : (
+        <div className="card-title">{t.prod_plan_title}</div>
+        {planEmpty ? <div className="empty-state">{t.prod_plan_empty}</div> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {plan.roastRows.map(r => {
               const shortage = r.green_needed_kg > r.green_stock_kg + 0.0001;
@@ -253,9 +262,13 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
                   key={"roast-" + r.sort_name}
                   icon="🔥"
                   warn={shortage}
-                  title={`Жарить: ${r.sort_name}`}
-                  detail={`загрузить ~${r.green_needed_kg.toFixed(2)} кг зелёного (остаток зелёного: ${r.green_stock_kg.toFixed(2)} кг)${shortage ? " — не хватает зелёного, докупите" : ""}`}
-                  buttonLabel="Начать обжарку"
+                  title={tpl(t.prod_roast_title, { sort: r.sort_name })}
+                  detail={tpl(t.prod_roast_detail, {
+                    green: r.green_needed_kg.toFixed(2),
+                    stock: r.green_stock_kg.toFixed(2),
+                    shortage: shortage ? t.prod_shortage_green : "",
+                  })}
+                  buttonLabel={t.prod_roast_action}
                   onClick={() => onStartRoast({
                     green_item: r.green_item,
                     input_kg: Math.min(r.green_needed_kg, r.green_stock_kg || r.green_needed_kg),
@@ -268,9 +281,12 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
               <PlanRow
                 key={"blend-" + r.blend_name}
                 icon="🔀"
-                title={`Купажировать: ${r.blend_name}`}
-                detail={`нужно ещё ${r.deficit_kg.toFixed(2)} кг (по последнему рецепту: ${r.ingredients.map(i => `${i.sort_name} ${i.kg.toFixed(2)} кг`).join(", ")})`}
-                buttonLabel="Начать купаж"
+                title={tpl(t.prod_blend_title, { blend: r.blend_name })}
+                detail={tpl(t.prod_blend_detail, {
+                  deficit: r.deficit_kg.toFixed(2),
+                  recipe: r.ingredients.map(i => `${i.sort_name} ${i.kg.toFixed(2)} ${t.unit_kg}`).join(", "),
+                })}
+                buttonLabel={t.prod_blend_action}
                 onClick={() => onStartBlend({ blend_name: r.blend_name, ingredients: r.ingredients })}
               />
             ))}
@@ -278,9 +294,9 @@ function QueueTab({ showToast, onStartRoast, onStartBlend }) {
               <PlanRow
                 key={"blendwarn-" + r.blend_name}
                 icon="⚠️" warn
-                title={`Купаж: ${r.blend_name}`}
-                detail={`нужно ещё ${r.deficit_kg.toFixed(2)} кг, но нет сохранённого рецепта — соберите вручную`}
-                buttonLabel="Купажировать вручную"
+                title={tpl(t.prod_blend_warn_title, { blend: r.blend_name })}
+                detail={tpl(t.prod_blend_warn_detail, { deficit: r.deficit_kg.toFixed(2) })}
+                buttonLabel={t.prod_blend_manual_action}
                 onClick={() => onStartBlend({ blend_name: r.blend_name })}
               />
             ))}
@@ -309,7 +325,7 @@ function PlanRow({ icon, title, detail, buttonLabel, onClick, warn }) {
 // ============================================================
 // ЖУРНАЛ ПРОИЗВОДСТВА (партии)
 // ============================================================
-function ProductionLogTab({ showToast }) {
+function ProductionLogTab({ t, showToast }) {
   const [roasts, setRoasts] = useState([]);
   const [blends, setBlends] = useState([]);
   const [blendIngredients, setBlendIngredients] = useState([]);
@@ -322,14 +338,14 @@ function ProductionLogTab({ showToast }) {
         supabase.from("roast_batches").select("*").order("roast_date", { ascending: false }),
         supabase.from("blend_batches").select("*").order("mix_date", { ascending: false }),
       ]);
-      if (roastRes.error) showToast("Ошибка загрузки обжарок: " + roastRes.error.message);
-      if (blendRes.error) showToast("Ошибка загрузки купажей: " + blendRes.error.message);
+      if (roastRes.error) showToast(t.wf_err_load_roasts + roastRes.error.message);
+      if (blendRes.error) showToast(t.wf_err_load_blends + blendRes.error.message);
       setRoasts(roastRes.data || []);
       setBlends(blendRes.data || []);
       const blendIds = (blendRes.data || []).map(b => b.id);
       if (blendIds.length) {
         const { data, error } = await supabase.from("blend_batch_ingredients").select("*").in("blend_batch_id", blendIds);
-        if (error) showToast("Ошибка загрузки состава купажей: " + error.message);
+        if (error) showToast(t.prod_err_load_recipe + error.message);
         setBlendIngredients(data || []);
       }
       setLoading(false);
@@ -337,26 +353,26 @@ function ProductionLogTab({ showToast }) {
     load();
   }, []); // eslint-disable-line
 
-  if (loading) return <div className="empty-state">Загрузка...</div>;
+  if (loading) return <div className="empty-state">{t.loading}</div>;
 
   return (
     <div>
       <div className="card" style={{ marginBottom: 14, padding: 0, overflow: "hidden" }}>
-        <div className="card-title" style={{ padding: "14px 18px 0" }}>Обжарки</div>
+        <div className="card-title" style={{ padding: "14px 18px 0" }}>{t.prod_roasts_title}</div>
         <table className="table">
           <thead>
-            <tr><th>Дата</th><th>Сорт</th><th>Загружено</th><th>Выход</th><th>Ужарка</th><th>Себестоимость/кг</th><th>Остаток</th></tr>
+            <tr><th>{t.whr_date_col}</th><th>{t.prod_sort_col}</th><th>{t.prod_loaded_col}</th><th>{t.prod_output_col}</th><th>{t.prod_loss_col}</th><th>{t.prod_cost_per_kg_col}</th><th>{t.wh_remaining_col}</th></tr>
           </thead>
           <tbody>
-            {roasts.length === 0 ? <tr><td colSpan={7} className="empty-state">Обжарок ещё не было</td></tr> : roasts.map(b => (
+            {roasts.length === 0 ? <tr><td colSpan={7} className="empty-state">{t.prod_no_roasts}</td></tr> : roasts.map(b => (
               <tr key={b.id}>
                 <td>{fmtDate(b.roast_date)}</td>
                 <td style={{ fontWeight: 500 }}>{b.sort_name}</td>
-                <td>{fmtKg(b.input_kg)}</td>
-                <td>{fmtKg(b.output_kg)}</td>
+                <td>{fmtKg(b.input_kg, t.unit_kg)}</td>
+                <td>{fmtKg(b.output_kg, t.unit_kg)}</td>
                 <td style={{ color: (b.loss_pct < LOSS_WARN_MIN || b.loss_pct > LOSS_WARN_MAX) ? "#B45309" : "#6B7280" }}>{Number(b.loss_pct).toFixed(1)}%</td>
                 <td>{fmtMoney(b.cost_per_kg)}</td>
-                <td>{fmtKg(b.remaining_kg)}</td>
+                <td>{fmtKg(b.remaining_kg, t.unit_kg)}</td>
               </tr>
             ))}
           </tbody>
@@ -364,22 +380,22 @@ function ProductionLogTab({ showToast }) {
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="card-title" style={{ padding: "14px 18px 0" }}>Купажи</div>
+        <div className="card-title" style={{ padding: "14px 18px 0" }}>{t.prod_blends_title}</div>
         <table className="table">
           <thead>
-            <tr><th>Дата</th><th>Название</th><th>Состав</th><th>Кг</th><th>Себестоимость/кг</th><th>Остаток</th></tr>
+            <tr><th>{t.whr_date_col}</th><th>{t.wh_name_col}</th><th>{t.prod_composition_col}</th><th>{t.prod_kg_col}</th><th>{t.prod_cost_per_kg_col}</th><th>{t.wh_remaining_col}</th></tr>
           </thead>
           <tbody>
-            {blends.length === 0 ? <tr><td colSpan={6} className="empty-state">Купажей ещё не было</td></tr> : blends.map(b => (
+            {blends.length === 0 ? <tr><td colSpan={6} className="empty-state">{t.prod_no_blends}</td></tr> : blends.map(b => (
               <tr key={b.id}>
                 <td>{fmtDate(b.mix_date)}</td>
                 <td style={{ fontWeight: 500 }}>{b.blend_name}</td>
                 <td style={{ color: "#6B7280", fontSize: 12 }}>
-                  {blendIngredients.filter(i => i.blend_batch_id === b.id).map(i => `${i.sort_name} ${fmtKg(i.kg)}`).join(", ") || "—"}
+                  {blendIngredients.filter(i => i.blend_batch_id === b.id).map(i => `${i.sort_name} ${fmtKg(i.kg, t.unit_kg)}`).join(", ") || "—"}
                 </td>
-                <td>{fmtKg(b.total_kg)}</td>
+                <td>{fmtKg(b.total_kg, t.unit_kg)}</td>
                 <td>{fmtMoney(b.cost_per_kg)}</td>
-                <td>{fmtKg(b.remaining_kg)}</td>
+                <td>{fmtKg(b.remaining_kg, t.unit_kg)}</td>
               </tr>
             ))}
           </tbody>
@@ -392,7 +408,7 @@ function ProductionLogTab({ showToast }) {
 // ============================================================
 // МОДАЛКА: НОВАЯ ОБЖАРКА
 // ============================================================
-function NewRoastModal({ prefill, onClose, onDone, showToast }) {
+function NewRoastModal({ t, prefill, onClose, onDone, showToast }) {
   const [greenItems, setGreenItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [greenItemId, setGreenItemId] = useState(prefill?.green_item?.id || "");
@@ -406,7 +422,7 @@ function NewRoastModal({ prefill, onClose, onDone, showToast }) {
 
   useEffect(() => {
     supabase.from("warehouse_items").select("*").eq("category", "green_beans").order("name").then(({ data, error }) => {
-      if (error) showToast("Ошибка загрузки зелёного зерна: " + error.message);
+      if (error) showToast(t.prod_err_load_green + error.message);
       setGreenItems(data || []);
       setLoadingItems(false);
     });
@@ -420,25 +436,26 @@ function NewRoastModal({ prefill, onClose, onDone, showToast }) {
   const lossWarn = input > 0 && output > 0 && (lossPct < LOSS_WARN_MIN || lossPct > LOSS_WARN_MAX);
 
   async function save() {
-    if (!greenItem) { showToast("Выберите зелёное зерно"); return; }
-    if (!(input > 0)) { showToast("Укажите загруженный вес"); return; }
-    if (!(output > 0)) { showToast("Укажите вес после обжарки"); return; }
-    if (input > Number(greenItem.stock_qty)) { showToast(`Недостаточно зелёного на складе: остаток ${fmtKg(greenItem.stock_qty)}`); return; }
+    if (!greenItem) { showToast(t.prod_select_green_error); return; }
+    if (!(input > 0)) { showToast(t.prod_enter_loaded_error); return; }
+    if (!(output > 0)) { showToast(t.prod_enter_output_error); return; }
+    if (input > Number(greenItem.stock_qty)) { showToast(`${t.prod_insufficient_green}${fmtKg(greenItem.stock_qty, t.unit_kg)}`); return; }
     setSaving(true);
 
     const { data: batch, error: batchErr } = await supabase.from("roast_batches").insert([{
       sort_name: greenItem.name, green_item_id: greenItem.id, roast_date: roastDate,
       input_kg: input, output_kg: output, loss_pct: lossPct, cost_per_kg: costPerKg, remaining_kg: output, notes: notes || null,
     }]).select().single();
-    if (batchErr) { showToast("Не удалось сохранить обжарку: " + batchErr.message); setSaving(false); return; }
+    if (batchErr) { showToast(t.prod_err_save_roast + batchErr.message); setSaving(false); return; }
 
     const newGreenStock = Number(greenItem.stock_qty) - input;
     const { error: updErr } = await supabase.from("warehouse_items").update({ stock_qty: newGreenStock }).eq("id", greenItem.id);
-    if (updErr) { showToast("Не удалось списать зелёное зерно: " + updErr.message); setSaving(false); return; }
+    if (updErr) { showToast(t.prod_err_writeoff_green + updErr.message); setSaving(false); return; }
 
+    const roastComment = tpl(t.prod_roast_comment, { name: greenItem.name });
     await supabase.from("warehouse_movements").insert([
-      { movement_type: "roast_consume", item_id: greenItem.id, batch_id: batch.id, batch_type: "roast", qty_change: -input, unit: "kg", reference: null, comment: `Обжарка ${greenItem.name}` },
-      { movement_type: "roast_produce", item_id: null, batch_id: batch.id, batch_type: "roast", qty_change: output, unit: "kg", reference: null, comment: `Обжарка ${greenItem.name}` },
+      { movement_type: "roast_consume", item_id: greenItem.id, batch_id: batch.id, batch_type: "roast", qty_change: -input, unit: "kg", reference: null, comment: roastComment },
+      { movement_type: "roast_produce", item_id: null, batch_id: batch.id, batch_type: "roast", qty_change: output, unit: "kg", reference: null, comment: roastComment },
     ]);
 
     setSaving(false);
@@ -448,42 +465,42 @@ function NewRoastModal({ prefill, onClose, onDone, showToast }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">Новая обжарка</div>
-        {loadingItems ? <div className="empty-state">Загрузка...</div> : (
+        <div className="modal-title">{t.prod_new_roast_title}</div>
+        {loadingItems ? <div className="empty-state">{t.loading}</div> : (
           <>
             <div className="form-group">
-              <label className="form-label">Зелёное зерно</label>
+              <label className="form-label">{t.prod_green_bean_label}</label>
               <select className="input" value={greenItemId} onChange={e => setGreenItemId(e.target.value)}>
-                <option value="">— выберите зелёное зерно —</option>
-                {greenItems.map(it => <option key={it.id} value={it.id}>{it.name} (остаток {fmtKg(it.stock_qty)})</option>)}
+                <option value="">{t.prod_select_green}</option>
+                {greenItems.map(it => <option key={it.id} value={it.id}>{it.name} ({t.whr_remaining_word} {fmtKg(it.stock_qty, t.unit_kg)})</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Дата обжарки</label>
+              <label className="form-label">{t.roast_date}</label>
               <input className="input" type="date" value={roastDate} onChange={e => setRoastDate(e.target.value)} style={{ maxWidth: 200 }} />
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Загружено, кг</label>
+                <label className="form-label">{t.prod_loaded_kg_label}</label>
                 <input className="input" type="number" value={inputKg} onChange={e => setInputKg(e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Выход, кг</label>
+                <label className="form-label">{t.prod_output_kg_label}</label>
                 <input className="input" type="number" value={outputKg} onChange={e => setOutputKg(e.target.value)} />
               </div>
             </div>
             {input > 0 && output > 0 && (
               <div className="form-group" style={{ fontSize: 12, color: lossWarn ? "#B45309" : "#6B7280" }}>
-                Ужарка: {lossPct.toFixed(1)}%{lossWarn && " — проверьте цифры (обычно 10–20%)"} · Себестоимость: {fmtMoney(costPerKg)}/кг
+                {tpl(t.prod_loss_line, { pct: lossPct.toFixed(1), warn: lossWarn ? t.prod_loss_warn_suffix : "", cost: fmtMoney(costPerKg) })}
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">Комментарий</label>
+              <label className="form-label">{t.whr_comment_col}</label>
               <input className="input" value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Сохранение..." : "Сохранить"}</button>
+              <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? t.whr_saving : t.save}</button>
             </div>
           </>
         )}
@@ -499,7 +516,7 @@ function emptyIngredientLine(sortName = "", kg = "") {
   return { key: Math.random().toString(36).slice(2), sortName, kg };
 }
 
-function NewBlendModal({ prefill, onClose, onDone, showToast }) {
+function NewBlendModal({ t, prefill, onClose, onDone, showToast }) {
   const [blendProducts, setBlendProducts] = useState([]);
   const [sortOptions, setSortOptions] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -520,8 +537,8 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
         supabase.from("products").select("id, name").eq("country", "Купаж"),
         supabase.from("roast_batches").select("sort_name, remaining_kg").gt("remaining_kg", 0),
       ]);
-      if (prodErr) showToast("Ошибка загрузки купажей: " + prodErr.message);
-      if (roastErr) showToast("Ошибка загрузки готового зерна: " + roastErr.message);
+      if (prodErr) showToast(t.wf_err_load_blends + prodErr.message);
+      if (roastErr) showToast(t.wf_err_load_roasts + roastErr.message);
       setBlendProducts(prod || []);
       const stockMap = new Map();
       (roast || []).forEach(b => stockMap.set(b.sort_name, (stockMap.get(b.sort_name) || 0) + Number(b.remaining_kg)));
@@ -539,9 +556,9 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
 
   async function save() {
     const name = (blendName || "").trim();
-    if (!name) { showToast("Укажите название купажа"); return; }
+    if (!name) { showToast(t.prod_enter_blend_name_error); return; }
     const validLines = lines.filter(l => l.sortName && Number(l.kg) > 0);
-    if (validLines.length < 2) { showToast("Нужно минимум 2 ингредиента с указанным весом"); return; }
+    if (validLines.length < 2) { showToast(t.prod_min_2_ingredients_error); return; }
     setSaving(true);
 
     const ingredientResults = [];
@@ -549,7 +566,7 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
       const needKg = Number(line.kg);
       const { data: batches, error: bErr } = await supabase
         .from("roast_batches").select("*").eq("sort_name", line.sortName).gt("remaining_kg", 0).order("roast_date", { ascending: true });
-      if (bErr) { showToast("Ошибка чтения партий обжарки: " + bErr.message); setSaving(false); return; }
+      if (bErr) { showToast(t.prod_err_read_batches + bErr.message); setSaving(false); return; }
       let remainingToConsume = needKg;
       let costSum = 0;
       const touched = [];
@@ -561,7 +578,7 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
         remainingToConsume -= take;
       }
       if (remainingToConsume > 0.0001) {
-        showToast(`Недостаточно готового зерна «${line.sortName}»: не хватает ${remainingToConsume.toFixed(2)} кг`);
+        showToast(tpl(t.prod_insufficient_roasted, { sort: line.sortName, kg: remainingToConsume.toFixed(2) }));
         setSaving(false);
         return;
       }
@@ -576,16 +593,17 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
     const { data: blendBatch, error: blendErr } = await supabase.from("blend_batches").insert([{
       blend_name: name, mix_date: mixDate, total_kg: totalKg, cost_per_kg: blendCostPerKg, remaining_kg: totalKg, notes: notes || null,
     }]).select().single();
-    if (blendErr) { showToast("Не удалось сохранить купаж: " + blendErr.message); setSaving(false); return; }
+    if (blendErr) { showToast(t.prod_err_save_blend + blendErr.message); setSaving(false); return; }
 
     await supabase.from("blend_batch_ingredients").insert(
       ingredientResults.map(i => ({ blend_batch_id: blendBatch.id, sort_name: i.sort_name, kg: i.kg, cost_per_kg: i.cost_per_kg }))
     );
 
+    const blendComment = tpl(t.prod_blend_comment, { name });
     const movementRows = [];
     ingredientResults.forEach(i => {
       i.touched.forEach(({ batch, take }) => {
-        movementRows.push({ movement_type: "blend_consume", item_id: null, batch_id: batch.id, batch_type: "roast", qty_change: -take, unit: "kg", reference: null, comment: `Купаж ${name}` });
+        movementRows.push({ movement_type: "blend_consume", item_id: null, batch_id: batch.id, batch_type: "roast", qty_change: -take, unit: "kg", reference: null, comment: blendComment });
       });
     });
     movementRows.push({ movement_type: "blend_produce", item_id: null, batch_id: blendBatch.id, batch_type: "blend", qty_change: totalKg, unit: "kg", reference: null, comment: null });
@@ -598,25 +616,25 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 640 }}>
-        <div className="modal-title">Купажирование</div>
-        {loadingData ? <div className="empty-state">Загрузка...</div> : (
+        <div className="modal-title">{t.prod_blend_modal_title}</div>
+        {loadingData ? <div className="empty-state">{t.loading}</div> : (
           <>
             <div className="form-group">
-              <label className="form-label">Название купажа</label>
+              <label className="form-label">{t.prod_blend_name_label}</label>
               {isNewName ? (
-                <input className="input" value={blendName} onChange={e => setBlendName(e.target.value)} placeholder="Название нового купажа" autoFocus />
+                <input className="input" value={blendName} onChange={e => setBlendName(e.target.value)} placeholder={t.prod_new_blend_name_placeholder} autoFocus />
               ) : (
                 <select className="input" value={blendName} onChange={e => {
                   if (e.target.value === "__new__") { setIsNewName(true); setBlendName(""); } else setBlendName(e.target.value);
                 }}>
-                  <option value="">— выберите купаж —</option>
+                  <option value="">{t.prod_select_blend}</option>
                   {blendProducts.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  <option value="__new__">+ новый купаж...</option>
+                  <option value="__new__">{t.prod_new_blend_opt}</option>
                 </select>
               )}
             </div>
             <div className="form-group">
-              <label className="form-label">Дата смешивания</label>
+              <label className="form-label">{t.prod_mix_date_label}</label>
               <input className="input" type="date" value={mixDate} onChange={e => setMixDate(e.target.value)} style={{ maxWidth: 200 }} />
             </div>
 
@@ -625,15 +643,15 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
               return (
                 <div key={line.key} className="form-row" style={{ alignItems: "flex-end", marginBottom: 8 }}>
                   <div className="form-group" style={{ marginBottom: 0, flex: 2 }}>
-                    <label className="form-label">Сорт</label>
+                    <label className="form-label">{t.prod_sort_label}</label>
                     <select className="input" value={line.sortName} onChange={e => updateLine(line.key, { sortName: e.target.value })}>
-                      <option value="">— выберите сорт —</option>
-                      {sortOptions.map(o => <option key={o.name} value={o.name}>{o.name} (остаток {fmtKg(o.kg)})</option>)}
-                      {missing && <option value={line.sortName}>{line.sortName} (нет в наличии)</option>}
+                      <option value="">{t.prod_select_sort}</option>
+                      {sortOptions.map(o => <option key={o.name} value={o.name}>{o.name} ({t.whr_remaining_word} {fmtKg(o.kg, t.unit_kg)})</option>)}
+                      {missing && <option value={line.sortName}>{line.sortName}{t.prod_out_of_stock_suffix}</option>}
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Кг</label>
+                    <label className="form-label">{t.prod_kg_label}</label>
                     <input className="input" type="number" value={line.kg} onChange={e => updateLine(line.key, { kg: e.target.value })} />
                   </div>
                   {lines.length > 2 && (
@@ -642,17 +660,17 @@ function NewBlendModal({ prefill, onClose, onDone, showToast }) {
                 </div>
               );
             })}
-            <button className="btn btn-secondary btn-sm" onClick={addLine}>+ Добавить ингредиент</button>
+            <button className="btn btn-secondary btn-sm" onClick={addLine}>{t.prod_add_ingredient_btn}</button>
 
-            <div className="form-group" style={{ marginTop: 14, fontSize: 12, color: "#6B7280" }}>Итого: {fmtKg(totalKg)}</div>
+            <div className="form-group" style={{ marginTop: 14, fontSize: 12, color: "#6B7280" }}>{t.prod_total_label}{fmtKg(totalKg, t.unit_kg)}</div>
 
             <div className="form-group">
-              <label className="form-label">Комментарий</label>
+              <label className="form-label">{t.whr_comment_col}</label>
               <input className="input" value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Сохранение..." : "Сохранить"}</button>
+              <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? t.whr_saving : t.save}</button>
             </div>
           </>
         )}

@@ -1,14 +1,16 @@
 import { useState, useEffect, Fragment } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const AGE_WARN_DAYS = 30;
 
 const fmtMoney = (n) => (n != null ? `${Number(n).toFixed(2)} zł` : "—");
-const fmtKg = (n) => (n != null ? `${Number(n).toFixed(2)} кг` : "—");
+const fmtKg = (n, unit) => (n != null ? `${Number(n).toFixed(2)} ${unit}` : "—");
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("ru-RU") : "—");
 const ageDays = (d) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0);
 
-export default function WarehouseFinished() {
+export default function WarehouseFinished({ lang }) {
+  const t = T[lang];
   const [roastBatches, setRoastBatches] = useState([]);
   const [blendBatches, setBlendBatches] = useState([]);
   const [minStockMap, setMinStockMap] = useState({});
@@ -32,10 +34,10 @@ export default function WarehouseFinished() {
       supabase.from("finished_goods_min_stock").select("*"),
       supabase.from("warehouse_economics_settings").select("*").eq("id", 1).single(),
     ]);
-    if (roastRes.error) showToast("Ошибка загрузки обжарок: " + roastRes.error.message);
-    if (blendRes.error) showToast("Ошибка загрузки купажей: " + blendRes.error.message);
-    if (minRes.error) showToast("Ошибка загрузки мин. остатков: " + minRes.error.message);
-    if (settingsRes.error) showToast("Ошибка загрузки настроек экономики: " + settingsRes.error.message);
+    if (roastRes.error) showToast(t.wf_err_load_roasts + roastRes.error.message);
+    if (blendRes.error) showToast(t.wf_err_load_blends + blendRes.error.message);
+    if (minRes.error) showToast(t.wf_err_load_min_stock + minRes.error.message);
+    if (settingsRes.error) showToast(t.wf_err_load_economics + settingsRes.error.message);
     setRoastBatches(roastRes.data || []);
     setBlendBatches(blendRes.data || []);
     const mm = {};
@@ -50,7 +52,7 @@ export default function WarehouseFinished() {
   async function saveSetting(field, value) {
     const num = Number(String(value).replace(",", ".")) || 0;
     const { error } = await supabase.from("warehouse_economics_settings").update({ [field]: num }).eq("id", 1);
-    if (error) { showToast("Не удалось сохранить настройку: " + error.message); return; }
+    if (error) { showToast(t.wf_err_save_setting + error.message); return; }
     setSettings(prev => ({ ...prev, [field]: num }));
   }
 
@@ -63,7 +65,7 @@ export default function WarehouseFinished() {
     const num = Number(minStockValue) || 0;
     setEditingMinStock(null);
     const { error } = await supabase.from("finished_goods_min_stock").upsert({ name, min_stock: num }, { onConflict: "name" });
-    if (error) { showToast("Не удалось сохранить: " + error.message); return; }
+    if (error) { showToast(t.wf_err_save + error.message); return; }
     setMinStockMap(prev => ({ ...prev, [name]: num }));
   }
 
@@ -85,40 +87,40 @@ export default function WarehouseFinished() {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Готовая продукция</span>
+        <span className="topbar-title">{t.nav_warehouse_finished}</span>
       </div>
       <div className="content">
         {settings && (
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">Настройки экономики</div>
+            <div className="card-title">{t.wf_economics_settings}</div>
             <div className="config-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
               <div className="config-item">
-                <label>Тариф доставки для нас, zł</label>
+                <label>{t.wf_shipping_cost_label}</label>
                 <input type="text" inputMode="decimal" defaultValue={settings.shipping_cost_for_us} onBlur={e => saveSetting("shipping_cost_for_us", e.target.value)} />
-                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>Сколько нам стоит одна отправка InPost</div>
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>{t.wf_shipping_cost_hint}</div>
               </div>
               <div className="config-item">
-                <label>Комиссия платежей, %</label>
+                <label>{t.wf_payment_commission_label}</label>
                 <input type="text" inputMode="decimal" defaultValue={settings.payment_commission_pct} onBlur={e => saveSetting("payment_commission_pct", e.target.value)} />
-                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>% платёжной системы: Stripe ~2.9%, P24 ~1.9%</div>
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>{t.wf_payment_commission_hint}</div>
               </div>
               <div className="config-item">
-                <label>Упаковка отправки, zł</label>
+                <label>{t.wf_shipping_packaging_label}</label>
                 <input type="text" inputMode="decimal" defaultValue={settings.shipping_packaging_cost} onBlur={e => saveSetting("shipping_packaging_cost", e.target.value)} />
-                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>Резервная оценка, если коробка не выбрана или нет позиций категории «Материалы для отправки»</div>
+                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: 400, textTransform: "none" }}>{t.wf_shipping_packaging_hint}</div>
               </div>
             </div>
           </div>
         )}
 
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
-                <tr><th>Название</th><th>Тип</th><th>Остаток</th><th>Мин. остаток</th><th>Партий</th></tr>
+                <tr><th>{t.wh_name_col}</th><th>{t.wh_type_col}</th><th>{t.wh_remaining_col}</th><th>{t.wh_min_stock_col}</th><th>{t.wh_batches_col}</th></tr>
               </thead>
               <tbody>
-                {groups.length === 0 ? <tr><td colSpan={5} className="empty-state">Готового зерна ещё нет</td></tr> : groups.map(g => {
+                {groups.length === 0 ? <tr><td colSpan={5} className="empty-state">{t.wf_no_finished_goods}</td></tr> : groups.map(g => {
                   const minStock = minStockMap[g.name] || 0;
                   const low = minStock > 0 && g.remaining <= minStock;
                   const isOpen = expanded === g.name;
@@ -126,10 +128,10 @@ export default function WarehouseFinished() {
                     <Fragment key={g.name}>
                       <tr style={{ cursor: "pointer" }} onClick={() => setExpanded(isOpen ? null : g.name)}>
                         <td style={{ fontWeight: 500 }}>{g.name}</td>
-                        <td style={{ color: "#6B7280" }}>{g.type === "blend" ? "Купаж" : "Сорт"}</td>
+                        <td style={{ color: "#6B7280" }}>{g.type === "blend" ? t.wh_blend_type : t.wh_sort_type}</td>
                         <td>
-                          {fmtKg(g.remaining)}
-                          {low && <span className="status-pill" style={{ marginLeft: 8, background: "#FFFBEB", color: "#B45309", borderColor: "#FDE68A" }}>Мало</span>}
+                          {fmtKg(g.remaining, t.unit_kg)}
+                          {low && <span className="status-pill" style={{ marginLeft: 8, background: "#FFFBEB", color: "#B45309", borderColor: "#FDE68A" }}>{t.wh_low_stock}</span>}
                         </td>
                         <td className="inline-edit-cell" onClick={e => { e.stopPropagation(); startEditMinStock(g.name); }}>
                           {editingMinStock === g.name ? (
@@ -141,7 +143,7 @@ export default function WarehouseFinished() {
                               onKeyDown={e => e.key === "Enter" && commitMinStock(g.name)}
                               onClick={e => e.stopPropagation()}
                             />
-                          ) : fmtKg(minStock)}
+                          ) : fmtKg(minStock, t.unit_kg)}
                         </td>
                         <td>{g.batches.length}</td>
                       </tr>
@@ -156,8 +158,8 @@ export default function WarehouseFinished() {
                                 const oldBatch = age > AGE_WARN_DAYS;
                                 return (
                                   <div key={b.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid #F3F4F6", background: oldBatch ? "#FFFBEB" : "transparent" }}>
-                                    <span>{fmtDate(b.date)} {oldBatch && <span style={{ color: "#B45309" }}>· {age} дн.</span>}</span>
-                                    <span style={{ color: "#6B7280" }}>{fmtKg(b.remaining_kg)} · себестоимость {fmtMoney(b.cost_per_kg)}/кг</span>
+                                    <span>{fmtDate(b.date)} {oldBatch && <span style={{ color: "#B45309" }}>· {age} {t.days_abbr}</span>}</span>
+                                    <span style={{ color: "#6B7280" }}>{fmtKg(b.remaining_kg, t.unit_kg)} · {t.wh_cost_price} {fmtMoney(b.cost_per_kg)}{t.wh_per_kg}</span>
                                   </div>
                                 );
                               })}

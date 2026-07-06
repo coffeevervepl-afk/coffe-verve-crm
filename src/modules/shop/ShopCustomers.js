@@ -1,28 +1,37 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
 const LANG_FLAG = { ru: "🇷🇺", pl: "🇵🇱", ua: "🇺🇦" };
-const ORDER_STATUS_LABELS = { new: "Новый", confirmed: "Оплачен", processing: "Собирается", shipped: "Отправлен", delivered: "Доставлен", cancelled: "Отменён" };
+function getOrderStatusLabels(t) {
+  return {
+    new: t.shop_status_new, confirmed: t.shop_status_confirmed, processing: t.shop_status_processing,
+    shipped: t.shop_status_shipped, delivered: t.shop_status_delivered, cancelled: t.shop_status_cancelled,
+  };
+}
 const NINETY_DAYS_MS = 90 * 24 * 3600 * 1000;
+function tpl(str, vars) {
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
 
 function compositionText(items) {
   if (!items || items.length === 0) return "—";
   return items.map(i => `${i.product_name} ${i.weight}g ×${i.quantity}`).join(", ");
 }
 
-const FILTERS = [
-  { key: "all", label: "Все" },
-  { key: "classic", label: "Classic" },
-  { key: "gold", label: "Gold" },
-  { key: "platinum", label: "Platinum" },
-  { key: "b2b", label: "B2B" },
-  { key: "inactive", label: "Неактивные 90+" },
-  { key: "abandoned", label: "Брошенные корзины" },
-];
-
-export default function ShopCustomers({ onOpenOrder }) {
+export default function ShopCustomers({ lang, onOpenOrder }) {
+  const t = T[lang];
+  const FILTERS = [
+    { key: "all", label: t.review_all },
+    { key: "classic", label: "Classic" },
+    { key: "gold", label: "Gold" },
+    { key: "platinum", label: "Platinum" },
+    { key: "b2b", label: "B2B" },
+    { key: "inactive", label: t.cust_filter_inactive },
+    { key: "abandoned", label: t.cust_filter_abandoned },
+  ];
   const [customers, setCustomers] = useState([]);
   const [orderCounts, setOrderCounts] = useState({});
   const [abandonedIds, setAbandonedIds] = useState(new Set());
@@ -46,10 +55,10 @@ export default function ShopCustomers({ onOpenOrder }) {
       supabase.from("shop_carts").select("shop_user_id, items, expires_at").not("shop_user_id", "is", null),
       supabase.from("loyalty_config").select("key, value"),
     ]);
-    if (usersRes.error) showToast("Ошибка загрузки покупателей: " + usersRes.error.message);
-    if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
-    if (cartsRes.error) showToast("Ошибка загрузки корзин: " + cartsRes.error.message);
-    if (cfgRes.error) showToast("Ошибка загрузки конфигурации лояльности: " + cfgRes.error.message);
+    if (usersRes.error) showToast(t.cust_err_load_customers + usersRes.error.message);
+    if (ordersRes.error) showToast(t.prod_err_load_orders + ordersRes.error.message);
+    if (cartsRes.error) showToast(t.cust_err_load_carts + cartsRes.error.message);
+    if (cfgRes.error) showToast(t.cust_err_load_loyalty_cfg + cfgRes.error.message);
 
     const counts = {};
     (ordersRes.data || []).forEach(o => {
@@ -72,7 +81,7 @@ export default function ShopCustomers({ onOpenOrder }) {
 
     setCustomers(usersRes.data || []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -91,12 +100,12 @@ export default function ShopCustomers({ onOpenOrder }) {
   });
 
   function remindAbandoned(c) {
-    showToast(`Напоминание с кодом −5% для ${c.name || c.email} — появится вместе с N8N-автоматизацией`);
+    showToast(tpl(t.cust_remind_toast, { name: c.name || c.email }));
   }
 
   return (
     <div>
-      <div className="topbar"><span className="topbar-title">Покупатели ({customers.length})</span></div>
+      <div className="topbar"><span className="topbar-title">{t.nav_shop_customers} ({customers.length})</span></div>
       <div className="content">
         <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
           {FILTERS.map(f => (
@@ -105,18 +114,18 @@ export default function ShopCustomers({ onOpenOrder }) {
             </button>
           ))}
         </div>
-        <input className="search-bar" placeholder="Поиск по имени, email..." value={search} onChange={e => setSearch(e.target.value)} />
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        <input className="search-bar" placeholder={t.cust_search_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Имя</th><th>Email</th><th>Уровень</th><th>Заказов</th>
-                  <th>Потрачено 12м</th><th>Последняя покупка</th><th>Скидка до</th><th></th>
+                  <th>{t.name}</th><th>{t.email}</th><th>{t.cust_level_col}</th><th>{t.orders_count}</th>
+                  <th>{t.cust_spent_12m_col}</th><th>{t.cust_last_purchase_col}</th><th>{t.cust_discount_until_col}</th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">Нет покупателей</td></tr> : filtered.map(c => {
+                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">{t.cust_no_customers}</td></tr> : filtered.map(c => {
                   const minActive = c.min_discount_until && new Date(c.min_discount_until) > new Date();
                   const inactive = isInactive(c);
                   return (
@@ -146,7 +155,7 @@ export default function ShopCustomers({ onOpenOrder }) {
                       <td>
                         {abandonedIds.has(c.id) && (
                           <button className="btn btn-sm" style={{ background: "#FEF3C7", color: "#92400E" }} onClick={() => remindAbandoned(c)}>
-                            Напомнить −5%
+                            {t.cust_remind_btn}
                           </button>
                         )}
                       </td>
@@ -158,7 +167,7 @@ export default function ShopCustomers({ onOpenOrder }) {
           </div>
         )}
       </div>
-      {selected && <CustomerDrawer customer={selected} config={config} onClose={() => setSelected(null)} onError={showToast} onOpenOrder={onOpenOrder} />}
+      {selected && <CustomerDrawer t={t} customer={selected} config={config} onClose={() => setSelected(null)} onError={showToast} onOpenOrder={onOpenOrder} />}
       {toast && <div className="print-toast">{toast}</div>}
     </div>
   );
@@ -172,11 +181,12 @@ function flattenStrings(value, acc) {
   return acc;
 }
 
-function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
+function CustomerDrawer({ t, customer, config, onClose, onError, onOpenOrder }) {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [crmClient, setCrmClient] = useState(null);
   const [loading, setLoading] = useState(true);
+  const ORDER_STATUS_LABELS = getOrderStatusLabels(t);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,7 +202,7 @@ function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
             : Promise.resolve({ data: null, error: null })),
       ]);
       if (cancelled) return;
-      if (ordersRes.error) onError("Ошибка загрузки заказов: " + ordersRes.error.message);
+      if (ordersRes.error) onError(t.prod_err_load_orders + ordersRes.error.message);
       setOrders(ordersRes.data || []);
       setProducts(productsRes.data || []);
       setCrmClient(crmRes.data || null);
@@ -230,25 +240,25 @@ function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
         <div className="drawer-body">
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Лояльность</div>
+            <div className="drawer-section-title">{t.cust_loyalty_section}</div>
             <div className="detail-row">
-              <span className="detail-label">Уровень</span>
+              <span className="detail-label">{t.cust_level_col}</span>
               <span>{customer.is_b2b ? <span className="level-badge level-b2b">B2B</span> : <span className={"level-badge level-" + (customer.loyalty_level || "classic")}>{customer.loyalty_level || "classic"}</span>}</span>
             </div>
             {!customer.is_b2b && nextThreshold && (
               <div style={{ margin: "8px 0" }}>
                 <div className="bar-track"><div className="bar-fill" style={{ width: `${progressPct}%` }} /></div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>{fmtMoney(spent)} из {fmtMoney(nextThreshold)} до следующего уровня</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>{tpl(t.cust_of_next_level, { spent: fmtMoney(spent), next: fmtMoney(nextThreshold) })}</div>
               </div>
             )}
-            <div className="detail-row"><span className="detail-label">Потрачено за 12м</span><span className="detail-value">{fmtMoney(spent)}</span></div>
-            <div className="detail-row"><span className="detail-label">Скидка до</span><span className="detail-value">{minActive ? `✓ ${fmtDate(customer.min_discount_until)}` : "—"}</span></div>
-            <div className="detail-row"><span className="detail-label">Реферальный код</span><span className="detail-value">{customer.referral_code ? <span className="promo-tag">{customer.referral_code}</span> : "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.cust_spent_12m_label}</span><span className="detail-value">{fmtMoney(spent)}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.cust_discount_until_col}</span><span className="detail-value">{minActive ? `✓ ${fmtDate(customer.min_discount_until)}` : "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.cust_referral_code_label}</span><span className="detail-value">{customer.referral_code ? <span className="promo-tag">{customer.referral_code}</span> : "—"}</span></div>
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">История заказов магазина</div>
-            {loading ? "Загрузка..." : orders.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>Заказов нет</div> : orders.map(o => (
+            <div className="drawer-section-title">{t.cust_order_history_title}</div>
+            {loading ? t.loading : orders.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>{t.cust_no_orders}</div> : orders.map(o => (
               <div key={o.id}
                 style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6", cursor: onOpenOrder ? "pointer" : "default" }}
                 onClick={() => onOpenOrder?.(o.id)}
@@ -263,17 +273,17 @@ function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Вкусовой профиль</div>
+            <div className="drawer-section-title">{t.cust_taste_profile_title}</div>
             {tasteTerms.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#9CA3AF" }}>Квиз не пройден</div>
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>{t.cust_quiz_not_taken}</div>
             ) : (
               <>
                 <div className="chip-list" style={{ marginBottom: 10 }}>
                   {tasteTerms.map((term, i) => <span key={i} className="chip selected">{term}</span>)}
                 </div>
-                <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>Что предложить:</div>
+                <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>{t.cust_what_to_suggest}</div>
                 {suggestions.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "#9CA3AF" }}>Совпадений по вкусу не найдено</div>
+                  <div style={{ fontSize: 12, color: "#9CA3AF" }}>{t.cust_no_taste_matches}</div>
                 ) : suggestions.map((p, i) => (
                   <div key={i} className="detail-row"><span className="detail-label">{p.name_ru}</span><span className="detail-value" style={{ fontSize: 11 }}>{p.origin}</span></div>
                 ))}
@@ -282,11 +292,11 @@ function CustomerDrawer({ customer, config, onClose, onError, onOpenOrder }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Связь с CRM</div>
+            <div className="drawer-section-title">{t.cust_crm_link_title}</div>
             {crmClient ? (
-              <div style={{ fontSize: 13, color: "#16A34A" }}>Это клиент CRM: <b>{crmClient.name}</b> ({crmClient.client_code || "без кода"})</div>
+              <div style={{ fontSize: 13, color: "#16A34A" }}>{t.cust_is_crm_client}<b>{crmClient.name}</b> ({crmClient.client_code || t.cust_no_code})</div>
             ) : (
-              <div style={{ fontSize: 12, color: "#9CA3AF" }}>Совпадений с клиентами CRM не найдено</div>
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>{t.cust_no_crm_match}</div>
             )}
           </div>
 

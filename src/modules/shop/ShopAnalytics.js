@@ -1,27 +1,34 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const fmtMoney = (n) => `${Number(n || 0).toFixed(2)} zł`;
 const fmtInt = (n) => String(Math.round(n || 0));
 const DAY_MS = 24 * 3600 * 1000;
+const LOCALE_BY_LANG = { ru: "ru-RU", pl: "pl-PL", ua: "uk-UA" };
+function tpl(str, vars) {
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
 
 const BLUE = "#2B58A1";
 const GREEN = "#16A34A";
 const AMBER = "#F59E0B";
 const GRAY = "#D1D5DB";
 
-const PERIODS = [
-  { key: "today", label: "Сегодня", days: 1 },
-  { key: "7d", label: "7 дней", days: 7 },
-  { key: "30d", label: "30 дней", days: 30 },
-  { key: "quarter", label: "Квартал", days: 91 },
-  { key: "half", label: "Полгода", days: 182 },
-  { key: "year", label: "Год", days: 365 },
-  { key: "all", label: "Всё время", days: null },
-  { key: "custom", label: "Свой период", days: null },
-];
+function getPeriods(t) {
+  return [
+    { key: "today", label: t.an_period_today, days: 1 },
+    { key: "7d", label: t.an_period_7d, days: 7 },
+    { key: "30d", label: t.an_period_30d, days: 30 },
+    { key: "quarter", label: t.an_period_quarter, days: 91 },
+    { key: "half", label: t.an_period_half, days: 182 },
+    { key: "year", label: t.an_period_year, days: 365 },
+    { key: "all", label: t.an_period_all, days: null },
+    { key: "custom", label: t.an_period_custom, days: null },
+  ];
+}
 
-function getRange(periodKey, customFrom, customTo, earliestDate) {
+function getRange(periodKey, customFrom, customTo, earliestDate, PERIODS) {
   const now = new Date();
   if (periodKey === "custom") {
     const start = customFrom ? new Date(customFrom + "T00:00:00") : new Date(now.getTime() - 30 * DAY_MS);
@@ -40,8 +47,8 @@ function shiftRange(range, ms) {
   return { start: new Date(range.start.getTime() - ms), end: new Date(range.end.getTime() - ms) };
 }
 
-function pctDelta(current, previous) {
-  if (!previous) return current > 0 ? { text: "новое", positive: true } : null;
+function pctDelta(current, previous, t) {
+  if (!previous) return current > 0 ? { text: t.an_new_word, positive: true } : null;
   const pct = ((current - previous) / previous) * 100;
   return { text: `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`, positive: pct >= 0 };
 }
@@ -51,7 +58,10 @@ function inRange(dateStr, range) {
   return d >= range.start.getTime() && d <= range.end.getTime();
 }
 
-export default function ShopAnalytics() {
+export default function ShopAnalytics({ lang }) {
+  const t = T[lang];
+  const PERIODS = getPeriods(t);
+  const locale = LOCALE_BY_LANG[lang] || "ru-RU";
   const [orders, setOrders] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
@@ -94,16 +104,16 @@ export default function ShopAnalytics() {
       supabase.from("blend_batches").select("blend_name, remaining_kg, mix_date"),
       supabase.from("finished_goods_min_stock").select("name, min_stock"),
     ]);
-    if (ordersRes.error) showToast("Ошибка загрузки заказов: " + ordersRes.error.message);
-    if (itemsRes.error) showToast("Ошибка загрузки позиций: " + itemsRes.error.message);
-    if (productionRes.error) showToast("Ошибка загрузки очереди производства: " + productionRes.error.message);
-    if (crmOrdersRes.error) showToast("Ошибка загрузки заказов CRM: " + crmOrdersRes.error.message);
-    if (movementsRes.error) showToast("Ошибка загрузки движений склада: " + movementsRes.error.message);
-    if (settingsRes.error) showToast("Ошибка загрузки настроек экономики: " + settingsRes.error.message);
-    if (rawItemsRes.error) showToast("Ошибка загрузки позиций склада: " + rawItemsRes.error.message);
-    if (roastRes.error) showToast("Ошибка загрузки обжарок: " + roastRes.error.message);
-    if (blendRes.error) showToast("Ошибка загрузки купажей: " + blendRes.error.message);
-    if (minStockRes.error) showToast("Ошибка загрузки мин. остатков готового: " + minStockRes.error.message);
+    if (ordersRes.error) showToast(t.prod_err_load_orders + ordersRes.error.message);
+    if (itemsRes.error) showToast(t.an_err_load_items + itemsRes.error.message);
+    if (productionRes.error) showToast(t.an_err_load_production_queue + productionRes.error.message);
+    if (crmOrdersRes.error) showToast(t.an_err_load_crm_orders + crmOrdersRes.error.message);
+    if (movementsRes.error) showToast(t.an_err_load_warehouse_movements + movementsRes.error.message);
+    if (settingsRes.error) showToast(t.wf_err_load_economics + settingsRes.error.message);
+    if (rawItemsRes.error) showToast(t.an_err_load_warehouse_positions + rawItemsRes.error.message);
+    if (roastRes.error) showToast(t.wf_err_load_roasts + roastRes.error.message);
+    if (blendRes.error) showToast(t.wf_err_load_blends + blendRes.error.message);
+    if (minStockRes.error) showToast(t.an_err_load_finished_min_stock + minStockRes.error.message);
     setOrders(ordersRes.data || []);
     setItems(itemsRes.data || []);
     setProducts(productsRes.data || []);
@@ -117,7 +127,7 @@ export default function ShopAnalytics() {
     setReviews(reviewsRes.data || []);
     setProductionQueue(productionRes.data || []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -126,7 +136,7 @@ export default function ShopAnalytics() {
     return new Date(Math.min(...orders.map(o => new Date(o.created_at).getTime())));
   }, [orders]);
 
-  const range = useMemo(() => getRange(period, customFrom, customTo, earliestDate), [period, customFrom, customTo, earliestDate]);
+  const range = useMemo(() => getRange(period, customFrom, customTo, earliestDate, PERIODS), [period, customFrom, customTo, earliestDate, PERIODS]);
   const rangeMs = range.end.getTime() - range.start.getTime();
   const prevRange = useMemo(() => shiftRange(range, rangeMs), [range, rangeMs]);
   const yearAgoRange = useMemo(() => shiftRange(range, 365 * DAY_MS), [range]);
@@ -198,12 +208,12 @@ export default function ShopAnalytics() {
       const d = new Date(o.created_at);
       const key = monthly ? `${d.getFullYear()}-${d.getMonth()}` : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       const label = monthly
-        ? d.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" })
-        : d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+        ? d.toLocaleDateString(locale, { month: "short", year: "2-digit" })
+        : d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
       buckets.set(key, { label, value: (buckets.get(key)?.value || 0) + Number(o.total || 0), sortKey: d.getTime() });
     });
     return Array.from(buckets.values()).sort((a, b) => a.sortKey - b.sortKey);
-  }, [current.paid, rangeMs]);
+  }, [current.paid, rangeMs, locale]);
 
   const topProducts = useMemo(() => {
     const paidOrderIds = new Set(current.paid.map(o => o.id));
@@ -235,8 +245,8 @@ export default function ShopAnalytics() {
     const firstPaidByCustomer = new Map();
     orders.filter(o => o.payment_status === "paid").forEach(o => {
       const key = o.shop_user_id || o.customer_email;
-      const t = new Date(o.created_at).getTime();
-      if (!firstPaidByCustomer.has(key) || t < firstPaidByCustomer.get(key)) firstPaidByCustomer.set(key, t);
+      const ts = new Date(o.created_at).getTime();
+      if (!firstPaidByCustomer.has(key) || ts < firstPaidByCustomer.get(key)) firstPaidByCustomer.set(key, ts);
     });
     let newCount = 0, repeatCount = 0;
     current.paid.forEach(o => {
@@ -281,12 +291,12 @@ export default function ShopAnalytics() {
   }, [orders, products, reviews, productionQueue, rawItems, finishedMinStock, roastBatches, blendBatches, saleMovements]);
 
   const statCards = [
-    { label: "Выручка", value: fmtMoney(current.revenue), prev: pctDelta(current.revenue, previous.revenue), ya: pctDelta(current.revenue, yearAgo.revenue) },
-    { label: "Заказов", value: fmtInt(current.orderCount), prev: pctDelta(current.orderCount, previous.orderCount), ya: pctDelta(current.orderCount, yearAgo.orderCount) },
-    { label: "Средний чек", value: fmtMoney(current.avgCheck), prev: pctDelta(current.avgCheck, previous.avgCheck), ya: pctDelta(current.avgCheck, yearAgo.avgCheck) },
-    { label: "Конверсия оплат", value: `${current.conversion.toFixed(0)}%`, prev: pctDelta(current.conversion, previous.conversion), ya: pctDelta(current.conversion, yearAgo.conversion) },
-    { label: "Прибыль за период", value: fmtMoney(profitStats.profit) },
-    { label: "Средняя маржа заказа", value: `${profitStats.avgMargin.toFixed(0)}%` },
+    { label: t.total_revenue, value: fmtMoney(current.revenue), prev: pctDelta(current.revenue, previous.revenue, t), ya: pctDelta(current.revenue, yearAgo.revenue, t) },
+    { label: t.total_orders, value: fmtInt(current.orderCount), prev: pctDelta(current.orderCount, previous.orderCount, t), ya: pctDelta(current.orderCount, yearAgo.orderCount, t) },
+    { label: t.avg_check, value: fmtMoney(current.avgCheck), prev: pctDelta(current.avgCheck, previous.avgCheck, t), ya: pctDelta(current.avgCheck, yearAgo.avgCheck, t) },
+    { label: t.an_conversion_stat, value: `${current.conversion.toFixed(0)}%`, prev: pctDelta(current.conversion, previous.conversion, t), ya: pctDelta(current.conversion, yearAgo.conversion, t) },
+    { label: t.an_profit_stat, value: fmtMoney(profitStats.profit) },
+    { label: t.an_avg_margin_stat, value: `${profitStats.avgMargin.toFixed(0)}%` },
   ];
 
   const maxRevenue = Math.max(1, ...revenueByBucket.map(b => b.value));
@@ -294,7 +304,7 @@ export default function ShopAnalytics() {
 
   return (
     <div>
-      <div className="topbar"><span className="topbar-title">Аналитика магазина</span></div>
+      <div className="topbar"><span className="topbar-title">{t.nav_shop_analytics}</span></div>
       <div className="content">
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           {PERIODS.map(p => (
@@ -311,7 +321,7 @@ export default function ShopAnalytics() {
           )}
         </div>
 
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <>
             <div className="stats-grid" style={{ marginBottom: 18 }}>
               {statCards.map(c => (
@@ -319,8 +329,8 @@ export default function ShopAnalytics() {
                   <div className="big-label">{c.label}</div>
                   <div className="big-value">{c.value}</div>
                   <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                    {c.prev && <span style={{ fontSize: 11, fontWeight: 600, color: c.prev.positive ? "#16A34A" : "#DC2626" }}>{c.prev.text} к пред. периоду</span>}
-                    {c.ya && <span style={{ fontSize: 11, fontWeight: 600, color: c.ya.positive ? "#16A34A" : "#DC2626" }}>{c.ya.text} к прошлому году</span>}
+                    {c.prev && <span style={{ fontSize: 11, fontWeight: 600, color: c.prev.positive ? "#16A34A" : "#DC2626" }}>{c.prev.text}{t.an_vs_prev_period}</span>}
+                    {c.ya && <span style={{ fontSize: 11, fontWeight: 600, color: c.ya.positive ? "#16A34A" : "#DC2626" }}>{c.ya.text}{t.an_vs_last_year}</span>}
                   </div>
                 </div>
               ))}
@@ -328,12 +338,12 @@ export default function ShopAnalytics() {
 
             <div className="grid-2">
               <div className="card">
-                <div className="card-title">Выручка по периоду</div>
-                <RevenueChart data={revenueByBucket} max={maxRevenue} />
+                <div className="card-title">{t.an_revenue_by_period}</div>
+                <RevenueChart t={t} data={revenueByBucket} max={maxRevenue} />
               </div>
               <div className="card">
-                <div className="card-title">Топ-5 товаров по выручке</div>
-                {topProducts.length === 0 ? <div className="empty-state">Нет данных</div> : (
+                <div className="card-title">{t.an_top5_products}</div>
+                {topProducts.length === 0 ? <div className="empty-state">{t.no_data}</div> : (
                   <div className="bar-chart">
                     {topProducts.map(p => (
                       <div key={p.name} className="bar-row" title={`${p.name}: ${fmtMoney(p.value)}`}>
@@ -349,34 +359,37 @@ export default function ShopAnalytics() {
 
             <div className="grid-3">
               <div className="card">
-                <div className="card-title">По весу</div>
+                <div className="card-title">{t.an_by_weight}</div>
                 <StackedBar
+                  t={t}
                   segments={[
-                    { label: "250г", value: weightSplit.totals[250], color: BLUE },
-                    { label: "500г", value: weightSplit.totals[500], color: GREEN },
-                    { label: "1кг", value: weightSplit.totals[1000], color: AMBER },
+                    { label: `250${t.unit_g}`, value: weightSplit.totals[250], color: BLUE },
+                    { label: `500${t.unit_g}`, value: weightSplit.totals[500], color: GREEN },
+                    { label: `1${t.unit_kg}`, value: weightSplit.totals[1000], color: AMBER },
                   ]}
                   total={weightSplit.sum}
                   fmt={fmtMoney}
                 />
               </div>
               <div className="card">
-                <div className="card-title">С промокодом vs без</div>
+                <div className="card-title">{t.an_promo_vs}</div>
                 <StackedBar
+                  t={t}
                   segments={[
-                    { label: "С промокодом", value: promoSplit.withPromo, color: GREEN },
-                    { label: "Без промокода", value: promoSplit.without, color: GRAY },
+                    { label: t.an_with_promo, value: promoSplit.withPromo, color: GREEN },
+                    { label: t.an_without_promo, value: promoSplit.without, color: GRAY },
                   ]}
                   total={promoSplit.withPromo + promoSplit.without}
                   fmt={fmtInt}
                 />
               </div>
               <div className="card">
-                <div className="card-title">Новые vs повторные</div>
+                <div className="card-title">{t.an_new_vs_repeat}</div>
                 <StackedBar
+                  t={t}
                   segments={[
-                    { label: "Новые", value: retentionSplit.newCount, color: BLUE },
-                    { label: "Повторные", value: retentionSplit.repeatCount, color: GREEN },
+                    { label: t.an_new_plural, value: retentionSplit.newCount, color: BLUE },
+                    { label: t.an_repeat_plural, value: retentionSplit.repeatCount, color: GREEN },
                   ]}
                   total={retentionSplit.newCount + retentionSplit.repeatCount}
                   fmt={fmtInt}
@@ -385,45 +398,45 @@ export default function ShopAnalytics() {
             </div>
 
             <div className="card" style={{ marginTop: 14 }}>
-              <div className="card-title">Требует внимания</div>
+              <div className="card-title">{t.an_attention_title}</div>
               <div className="grid-3">
                 <AttentionBlock
-                  icon="🔴" label="Неудачные оплаты за 30 дн" count={attention.failedPayments.length} color="#DC2626"
-                  items={attention.failedPayments.slice(0, 5).map(o => `Заказ на ${fmtMoney(o.total)}`)}
+                  t={t} icon="🔴" label={t.an_failed_payments} count={attention.failedPayments.length} color="#DC2626"
+                  items={attention.failedPayments.slice(0, 5).map(o => `${t.an_order_for}${fmtMoney(o.total)}`)}
                 />
                 <AttentionBlock
-                  icon="🟠" label="Нет в наличии" count={attention.outOfStock.length} color="#B45309"
+                  t={t} icon="🟠" label={t.an_out_of_stock} count={attention.outOfStock.length} color="#B45309"
                   items={attention.outOfStock.slice(0, 5).map(p => p.name_ru)}
                 />
                 <AttentionBlock
-                  icon="🟡" label="Отзывы 1–2★" count={attention.lowReviews.length} color="#92400E"
+                  t={t} icon="🟡" label={t.an_low_reviews} count={attention.lowReviews.length} color="#92400E"
                   items={attention.lowReviews.slice(0, 5).map(r => `${r.author_name}: ${r.review_text.slice(0, 40)}${r.review_text.length > 40 ? "…" : ""}`)}
                 />
                 {attention.productionOrderCount > 0 && (
                   <AttentionBlock
-                    icon="🟤" label="Ждут производства" count={attention.productionOrderCount} color="#78350F"
-                    items={[`${attention.productionKg.toFixed(1)} кг зерна к отправке`]}
+                    t={t} icon="🟤" label={t.an_awaiting_production} count={attention.productionOrderCount} color="#78350F"
+                    items={[tpl(t.an_kg_to_ship, { kg: attention.productionKg.toFixed(1) })]}
                   />
                 )}
                 {(attention.lowRawStock.length + attention.lowFinishedStock.length) > 0 && (
                   <AttentionBlock
-                    icon="🟠" label="Остаток ниже минимума" count={attention.lowRawStock.length + attention.lowFinishedStock.length} color="#B45309"
+                    t={t} icon="🟠" label={t.an_below_min_stock} count={attention.lowRawStock.length + attention.lowFinishedStock.length} color="#B45309"
                     items={[
-                      ...attention.lowRawStock.slice(0, 3).map(it => `${it.name} (сырьё): ${Number(it.stock_qty).toFixed(1)}`),
-                      ...attention.lowFinishedStock.slice(0, 3).map(it => `${it.name} (готовое): ${it.kg.toFixed(1)} кг`),
+                      ...attention.lowRawStock.slice(0, 3).map(it => tpl(t.an_raw_stock_item, { name: it.name, qty: Number(it.stock_qty).toFixed(1) })),
+                      ...attention.lowFinishedStock.slice(0, 3).map(it => tpl(t.an_finished_stock_item, { name: it.name, kg: it.kg.toFixed(1) })),
                     ].slice(0, 5)}
                   />
                 )}
                 {attention.oldBatches.length > 0 && (
                   <AttentionBlock
-                    icon="🟡" label="Партии старше 30 дней" count={attention.oldBatches.length} color="#92400E"
-                    items={attention.oldBatches.slice(0, 5).map(b => `${b.name} от ${new Date(b.date).toLocaleDateString("ru-RU")}`)}
+                    t={t} icon="🟡" label={t.an_old_batches} count={attention.oldBatches.length} color="#92400E"
+                    items={attention.oldBatches.slice(0, 5).map(b => tpl(t.an_batch_from, { name: b.name, date: new Date(b.date).toLocaleDateString(locale) }))}
                   />
                 )}
                 {attention.shortages.length > 0 && (
                   <AttentionBlock
-                    icon="🔴" label="Нехватки при списании (30 дн)" count={attention.shortages.length} color="#DC2626"
-                    items={attention.shortages.slice(0, 5).map(m => m.comment || "Нехватка при продаже")}
+                    t={t} icon="🔴" label={t.an_shortages} count={attention.shortages.length} color="#DC2626"
+                    items={attention.shortages.slice(0, 5).map(m => m.comment || t.an_shortage_fallback)}
                   />
                 )}
               </div>
@@ -436,8 +449,8 @@ export default function ShopAnalytics() {
   );
 }
 
-function RevenueChart({ data, max }) {
-  if (data.length === 0) return <div className="empty-state">Нет данных за период</div>;
+function RevenueChart({ t, data, max }) {
+  if (data.length === 0) return <div className="empty-state">{t.an_no_data_period}</div>;
   const w = 600, h = 160, pad = 24;
   const stepX = data.length > 1 ? (w - pad * 2) / (data.length - 1) : 0;
   const points = data.map((d, i) => {
@@ -466,8 +479,8 @@ function RevenueChart({ data, max }) {
   );
 }
 
-function StackedBar({ segments, total, fmt }) {
-  if (!total) return <div className="empty-state">Нет данных</div>;
+function StackedBar({ t, segments, total, fmt }) {
+  if (!total) return <div className="empty-state">{t.no_data}</div>;
   return (
     <div>
       <div style={{ display: "flex", height: 22, borderRadius: 6, overflow: "hidden", gap: 2, background: "#F3F4F6" }}>
@@ -487,7 +500,7 @@ function StackedBar({ segments, total, fmt }) {
   );
 }
 
-function AttentionBlock({ icon, label, count, color, items }) {
+function AttentionBlock({ t, icon, label, count, color, items }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -496,10 +509,10 @@ function AttentionBlock({ icon, label, count, color, items }) {
         <span className="badge" style={{ background: "#F3F4F6", color: "#374151" }}>{count}</span>
       </div>
       {items.length === 0 ? (
-        <div style={{ fontSize: 11, color: "#9CA3AF" }}>Нет</div>
+        <div style={{ fontSize: 11, color: "#9CA3AF" }}>{t.prod_status_inactive}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {items.map((t, i) => <div key={i} style={{ fontSize: 11, color: "#6B7280" }}>{t}</div>)}
+          {items.map((txt, i) => <div key={i} style={{ fontSize: 11, color: "#6B7280" }}>{txt}</div>)}
         </div>
       )}
     </div>

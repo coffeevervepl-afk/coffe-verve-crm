@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const fmtDate = (d) => d ? new Date(d).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
+function tpl(str, vars) {
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
 
 function sizeFromName(name) {
   if (/\bS\b/i.test(name)) return "S";
@@ -16,7 +20,12 @@ function suggestBoxSize(totalKg) {
   return "L";
 }
 
-const STATUS_LABELS = { new: "Новый", confirmed: "Оплачен", processing: "Собирается", shipped: "Отправлен", delivered: "Доставлен", cancelled: "Отменён" };
+function getStatusLabels(t) {
+  return {
+    new: t.shop_status_new, confirmed: t.shop_status_confirmed, processing: t.shop_status_processing,
+    shipped: t.shop_status_shipped, delivered: t.shop_status_delivered, cancelled: t.shop_status_cancelled,
+  };
+}
 const STATUS_PILL = {
   new: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
   confirmed: { bg: "#F0FDF4", color: "#15803D", border: "#BBF7D0" },
@@ -25,19 +34,25 @@ const STATUS_PILL = {
   delivered: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0" },
   cancelled: { bg: "#FFF1F2", color: "#BE123C", border: "#FECDD3" },
 };
-const PAYMENT_LABELS = { pending: "🟡 Ожидает", paid: "🟢 Оплачен", failed: "🔴 Ошибка", refunded: "⚪ Возврат" };
-const DELIVERY_LABELS = { paczkomat: "Paczkomat InPost", courier: "Курьер", pickup: "Самовывоз" };
+function getPaymentLabels(t) {
+  return { pending: t.so_payment_pending, paid: t.so_payment_paid, failed: t.so_payment_failed, refunded: t.so_payment_refunded };
+}
+function getDeliveryLabels(t) {
+  return { paczkomat: t.so_delivery_paczkomat, courier: t.so_delivery_courier, pickup: t.so_delivery_pickup };
+}
 const LANG_FLAG = { ru: "🇷🇺", pl: "🇵🇱", ua: "🇺🇦" };
 
-const TABS = [
-  { key: "new", label: "Новые", match: (o) => o.status === "new" },
-  { key: "confirmed", label: "Оплачены", match: (o) => o.status === "confirmed" },
-  { key: "processing", label: "Собираются", match: (o) => o.status === "processing" },
-  { key: "shipped", label: "Отправлены", match: (o) => o.status === "shipped" },
-  { key: "delivered", label: "Доставлены", match: (o) => o.status === "delivered" },
-  { key: "problem", label: "Проблемные", match: (o) => o.status === "cancelled" || o.payment_status === "failed" || o.payment_status === "refunded" },
-  { key: "all", label: "Все", match: () => true },
-];
+function getTabs(t) {
+  return [
+    { key: "new", label: t.so_tab_new, match: (o) => o.status === "new" },
+    { key: "confirmed", label: t.so_tab_confirmed, match: (o) => o.status === "confirmed" },
+    { key: "processing", label: t.so_tab_processing, match: (o) => o.status === "processing" },
+    { key: "shipped", label: t.so_tab_shipped, match: (o) => o.status === "shipped" },
+    { key: "delivered", label: t.so_tab_delivered, match: (o) => o.status === "delivered" },
+    { key: "problem", label: t.so_tab_problem, match: (o) => o.status === "cancelled" || o.payment_status === "failed" || o.payment_status === "refunded" },
+    { key: "all", label: t.review_all, match: () => true },
+  ];
+}
 
 const STATUS_WORD_BY_LANG = {
   ru: { new: "новый", confirmed: "оплачен", processing: "собирается", shipped: "отправлен", delivered: "доставлен", cancelled: "отменён" },
@@ -56,15 +71,19 @@ function buildMessageText(order) {
   return templates[lang];
 }
 
-function compositionSummary(items) {
+function compositionSummary(items, t) {
   if (!items || items.length === 0) return { short: "—", full: "" };
   const first = items[0];
-  const shortText = `${first.product_name} ${first.weight}г ×${first.quantity}` + (items.length > 1 ? ` +${items.length - 1} ещё` : "");
-  const full = items.map(i => `${i.product_name} ${i.weight}г ×${i.quantity}`).join("\n");
+  const shortText = `${first.product_name} ${first.weight}${t.unit_g} ×${first.quantity}` + (items.length > 1 ? tpl(t.so_more_suffix, { n: items.length - 1 }) : "");
+  const full = items.map(i => `${i.product_name} ${i.weight}${t.unit_g} ×${i.quantity}`).join("\n");
   return { short: shortText, full };
 }
 
-export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
+export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
+  const t = T[lang];
+  const TABS = getTabs(t);
+  const STATUS_LABELS = getStatusLabels(t);
+  const PAYMENT_LABELS = getPaymentLabels(t);
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState("new");
   const [search, setSearch] = useState("");
@@ -84,10 +103,10 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
       .from("shop_orders")
       .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total)")
       .order("created_at", { ascending: false });
-    if (error) showToast("Ошибка загрузки заказов: " + error.message);
+    if (error) showToast(t.prod_err_load_orders + error.message);
     setOrders(data || []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -95,13 +114,13 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
     if (!openOrderId || orders.length === 0) return;
     const found = orders.find(o => o.id === openOrderId);
     if (found) setSelected(found);
-    else showToast("Заказ не найден");
+    else showToast(t.so_order_not_found);
     onOpenOrderHandled?.();
   }, [openOrderId, orders]); // eslint-disable-line
 
   async function changeStatus(id, status) {
     const { error } = await supabase.from("shop_orders").update({ status }).eq("id", id);
-    if (error) { showToast("Не удалось сохранить статус: " + error.message); return; }
+    if (error) { showToast(t.so_err_save_status + error.message); return; }
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
     setSelected(prev => prev && prev.id === id ? { ...prev, status } : prev);
   }
@@ -122,7 +141,7 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Заказы магазина ({filtered.length})</span>
+        <span className="topbar-title">{t.nav_shop_orders} ({filtered.length})</span>
       </div>
       <div className="content">
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -132,19 +151,19 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
             </button>
           ))}
         </div>
-        <input className="search-bar" placeholder="Поиск по имени, email, номеру заказа..." value={search} onChange={e => setSearch(e.target.value)} />
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        <input className="search-bar" placeholder={t.so_search_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>№</th><th>Дата</th><th>Клиент</th><th>Состав</th><th>Сумма</th>
-                  <th>Оплата</th><th>Статус</th><th>Действия</th>
+                  <th>№</th><th>{t.date}</th><th>{t.client}</th><th>{t.so_composition_col}</th><th>{t.so_amount_col}</th>
+                  <th>{t.so_payment_col}</th><th>{t.status}</th><th>{t.so_actions_col}</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">Нет заказов</td></tr> : filtered.map(o => {
-                  const comp = compositionSummary(o.shop_order_items);
+                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">{t.so_no_orders}</td></tr> : filtered.map(o => {
+                  const comp = compositionSummary(o.shop_order_items, t);
                   return (
                     <tr key={o.id}>
                       <td style={{ color: "#4B5563", fontSize: 12 }}>{o.order_number}</td>
@@ -176,9 +195,9 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
                         </select>
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <button className="action-icon-btn" title="Открыть" onClick={() => setSelected(o)}>👁</button>
-                        <button className="action-icon-btn" title="Написать" onClick={() => setContactOrder(o)}>📱</button>
-                        <button className="action-icon-btn" title="Печать этикетки" onClick={() => showToast("Печать этикеток появится позже")}>🖨</button>
+                        <button className="action-icon-btn" title={t.open_order_action} onClick={() => setSelected(o)}>👁</button>
+                        <button className="action-icon-btn" title={t.so_write_title} onClick={() => setContactOrder(o)}>📱</button>
+                        <button className="action-icon-btn" title={t.so_print_label_title} onClick={() => showToast(t.so_print_labels_later)}>🖨</button>
                       </td>
                     </tr>
                   );
@@ -189,21 +208,21 @@ export default function ShopOrders({ openOrderId, onOpenOrderHandled }) {
         )}
       </div>
       {selected && (
-        <OrderDrawer order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} onError={showToast} />
+        <OrderDrawer t={t} order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} onError={showToast} />
       )}
-      {contactOrder && <ContactModal order={contactOrder} onClose={() => setContactOrder(null)} />}
+      {contactOrder && <ContactModal t={t} order={contactOrder} onClose={() => setContactOrder(null)} />}
       {toast && <div className="print-toast">{toast}</div>}
     </div>
   );
 }
 
-function ContactModal({ order, onClose }) {
+function ContactModal({ t, order, onClose }) {
   const text = buildMessageText(order);
   const hasWhatsapp = !!order.customer_phone;
   const waPhone = hasWhatsapp ? order.customer_phone.replace(/[^\d]/g, "") : "";
 
   function openEmail() {
-    window.open(`mailto:${order.customer_email}?subject=${encodeURIComponent("Coffee Verve — заказ №" + order.order_number)}&body=${encodeURIComponent(text)}`, "_blank");
+    window.open(`mailto:${order.customer_email}?subject=${encodeURIComponent(t.so_email_subject + order.order_number)}&body=${encodeURIComponent(text)}`, "_blank");
     onClose();
   }
   function openWhatsapp() {
@@ -214,69 +233,72 @@ function ContactModal({ order, onClose }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 380 }}>
-        <div className="modal-title">Написать клиенту</div>
+        <div className="modal-title">{t.so_contact_title}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div className={"channel-item"} style={{ border: "1px solid #E5E7EB", borderRadius: 8 }} onClick={openEmail}>✉️ Email</div>
+          <div className={"channel-item"} style={{ border: "1px solid #E5E7EB", borderRadius: 8 }} onClick={openEmail}>{t.so_email_channel}</div>
           <div className={"channel-item" + (hasWhatsapp ? "" : " disabled")} style={{ border: "1px solid #E5E7EB", borderRadius: 8 }} onClick={hasWhatsapp ? openWhatsapp : undefined}>
-            💬 WhatsApp {!hasWhatsapp && "— нет телефона"}
+            {t.so_whatsapp_channel} {!hasWhatsapp && t.so_no_phone}
           </div>
-          <div className="channel-item disabled" style={{ border: "1px solid #E5E7EB", borderRadius: 8 }}>📱 Telegram — недоступно</div>
+          <div className="channel-item disabled" style={{ border: "1px solid #E5E7EB", borderRadius: 8 }}>{t.so_telegram_unavailable}</div>
         </div>
-        <div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Закрыть</button></div>
+        <div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>{t.close}</button></div>
       </div>
     </div>
   );
 }
 
-function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
+function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
   const [tracking, setTracking] = useState(order.tracking_number || "");
   const [savingTracking, setSavingTracking] = useState(false);
   const [promo, setPromo] = useState(null);
   const [refunding, setRefunding] = useState(false);
+  const STATUS_LABELS = getStatusLabels(t);
+  const PAYMENT_LABELS = getPaymentLabels(t);
+  const DELIVERY_LABELS = getDeliveryLabels(t);
 
   useEffect(() => {
     let cancelled = false;
     supabase.from("promo_code_uses").select("*, shop_promo_codes(code)").eq("order_id", order.id).maybeSingle()
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) onError("Ошибка загрузки промокода: " + error.message);
+        if (error) onError(t.so_err_load_promo + error.message);
         setPromo(data);
       });
     return () => { cancelled = true; };
-  }, [order.id, onError]);
+  }, [order.id, onError, t]);
 
   async function saveTracking() {
     setSavingTracking(true);
     const { error } = await supabase.from("shop_orders").update({ tracking_number: tracking || null }).eq("id", order.id);
     setSavingTracking(false);
-    if (error) { onError("Не удалось сохранить трек-номер: " + error.message); return; }
+    if (error) { onError(t.so_err_save_tracking + error.message); return; }
     onUpdated({ id: order.id, tracking_number: tracking || null });
-    onError("Трек-номер сохранён");
+    onError(t.so_tracking_saved);
   }
 
   async function changeStatus(status) {
     const { error } = await supabase.from("shop_orders").update({ status }).eq("id", order.id);
-    if (error) { onError("Не удалось сохранить статус: " + error.message); return; }
+    if (error) { onError(t.so_err_save_status + error.message); return; }
     onUpdated({ id: order.id, status });
   }
 
   async function doRefund() {
-    if (!window.confirm(`Оформить возврат по заказу №${order.order_number}?`)) return;
+    if (!window.confirm(tpl(t.so_confirm_refund, { num: order.order_number }))) return;
     setRefunding(true);
     const { error } = await supabase.from("shop_orders").update({ payment_status: "refunded" }).eq("id", order.id);
-    if (error) { onError("Не удалось оформить возврат: " + error.message); setRefunding(false); return; }
+    if (error) { onError(t.so_err_refund + error.message); setRefunding(false); return; }
     if (order.crm_order_id) {
       const { error: wErr } = await supabase.from("warranties").insert([{
         order_id: order.crm_order_id,
-        reason: `Возврат оформлен из заказа магазина №${order.order_number}`,
+        reason: tpl(t.so_refund_warranty_reason, { num: order.order_number }),
         resolution: "refund",
         status: "new",
       }]);
-      if (wErr) onError("Возврат оформлен, но запись в гарантии не создалась: " + wErr.message);
+      if (wErr) onError(t.so_refund_warranty_err + wErr.message);
     }
     onUpdated({ id: order.id, payment_status: "refunded" });
     setRefunding(false);
-    onError("Возврат оформлен");
+    onError(t.so_refund_done);
   }
 
   const addr = order.delivery_address || {};
@@ -284,60 +306,60 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
     ? [addr.paczkomat_id, addr.paczkomat_name, addr.paczkomat_address].filter(Boolean).join(" · ") || "—"
     : order.delivery_type === "courier"
       ? [addr.street, addr.city, addr.postal_code].filter(Boolean).join(", ") || "—"
-      : "Самовывоз из точки продажи";
+      : t.so_pickup_text;
 
   return (
     <div className="drawer-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="drawer">
         <div className="drawer-header">
-          <span className="drawer-title">Заказ №{order.order_number} {LANG_FLAG[order.language] || ""}</span>
+          <span className="drawer-title">{t.so_order_word} №{order.order_number} {LANG_FLAG[order.language] || ""}</span>
           <button className="drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="drawer-body">
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Состав</div>
+            <div className="drawer-section-title">{t.so_composition_col}</div>
             {(order.shop_order_items || []).map((it, i) => (
               <div key={i} className="detail-row">
-                <span className="detail-label">{it.product_name} {it.weight}г ×{it.quantity}</span>
+                <span className="detail-label">{it.product_name} {it.weight}{t.unit_g} ×{it.quantity}</span>
                 <span className="detail-value">{fmtMoney(it.line_total)}</span>
               </div>
             ))}
             {promo?.shop_promo_codes?.code && (
               <div className="detail-row">
-                <span className="detail-label">Промокод</span>
+                <span className="detail-label">{t.promo_code}</span>
                 <span><span className="promo-tag">{promo.shop_promo_codes.code}</span> −{fmtMoney(order.discount_amount)}</span>
               </div>
             )}
-            <div className="detail-row"><span className="detail-label">Доставка</span><span className="detail-value">{fmtMoney(order.delivery_cost)}</span></div>
-            <div className="detail-row"><span className="detail-label" style={{ fontWeight: 700 }}>Итого</span><span className="detail-value" style={{ color: "#16A34A" }}>{fmtMoney(order.total)}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.so_delivery_section}</span><span className="detail-value">{fmtMoney(order.delivery_cost)}</span></div>
+            <div className="detail-row"><span className="detail-label" style={{ fontWeight: 700 }}>{t.total}</span><span className="detail-value" style={{ color: "#16A34A" }}>{fmtMoney(order.total)}</span></div>
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Клиент</div>
-            <div className="detail-row"><span className="detail-label">Имя</span><span className="detail-value">{order.customer_name}</span></div>
-            <div className="detail-row"><span className="detail-label">Email</span><span className="detail-value">{order.customer_email}</span></div>
-            <div className="detail-row"><span className="detail-label">Телефон</span><span className="detail-value">{order.customer_phone || "—"}</span></div>
-            <div className="detail-row"><span className="detail-label">Язык</span><span className="detail-value">{LANG_FLAG[order.language] || "—"}</span></div>
-            <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>Профиль покупателя появится в разделе «Покупатели»</div>
+            <div className="drawer-section-title">{t.client}</div>
+            <div className="detail-row"><span className="detail-label">{t.name}</span><span className="detail-value">{order.customer_name}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.email}</span><span className="detail-value">{order.customer_email}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.phone}</span><span className="detail-value">{order.customer_phone || "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.language}</span><span className="detail-value">{LANG_FLAG[order.language] || "—"}</span></div>
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>{t.so_customer_profile_hint}</div>
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Доставка</div>
-            <div className="detail-row"><span className="detail-label">Способ</span><span className="detail-value">{DELIVERY_LABELS[order.delivery_type] || order.delivery_type}</span></div>
-            <div className="detail-row"><span className="detail-label">Адрес / пункт</span><span className="detail-value" style={{ textAlign: "right" }}>{addrText}</span></div>
+            <div className="drawer-section-title">{t.so_delivery_section}</div>
+            <div className="detail-row"><span className="detail-label">{t.so_method_label}</span><span className="detail-value">{DELIVERY_LABELS[order.delivery_type] || order.delivery_type}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.so_address_point_label}</span><span className="detail-value" style={{ textAlign: "right" }}>{addrText}</span></div>
             <div className="form-group" style={{ marginTop: 10 }}>
-              <label className="form-label">Номер посылки</label>
+              <label className="form-label">{t.so_tracking_number_label}</label>
               <div style={{ display: "flex", gap: 8 }}>
-                <input className="input" value={tracking} onChange={e => setTracking(e.target.value)} placeholder="Введите трек-номер" />
-                <button className="btn btn-secondary btn-sm" disabled={savingTracking} onClick={saveTracking}>Сохранить</button>
+                <input className="input" value={tracking} onChange={e => setTracking(e.target.value)} placeholder={t.so_tracking_placeholder} />
+                <button className="btn btn-secondary btn-sm" disabled={savingTracking} onClick={saveTracking}>{t.save}</button>
               </div>
             </div>
-            <PackagingSelect order={order} onUpdated={onUpdated} showToast={onError} />
+            <PackagingSelect t={t} order={order} onUpdated={onUpdated} showToast={onError} />
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Статус</div>
+            <div className="drawer-section-title">{t.status}</div>
             <select
               className="status-select-pill"
               style={{ background: STATUS_PILL[order.status]?.bg, color: STATUS_PILL[order.status]?.color, borderColor: STATUS_PILL[order.status]?.border }}
@@ -347,38 +369,38 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
               {Object.keys(STATUS_LABELS).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
             </select>
             <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>
-              Создан: {fmtDate(order.created_at)} · Обновлён: {fmtDate(order.updated_at)}
+              {t.so_created_label}{fmtDate(order.created_at)}{t.so_updated_label}{fmtDate(order.updated_at)}
             </div>
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Оплата</div>
-            <div className="detail-row"><span className="detail-label">Статус</span><span className="detail-value">{PAYMENT_LABELS[order.payment_status] || order.payment_status}</span></div>
-            <div className="detail-row"><span className="detail-label">Провайдер</span><span className="detail-value">{order.payment_provider || "—"}</span></div>
+            <div className="drawer-section-title">{t.so_payment_col}</div>
+            <div className="detail-row"><span className="detail-label">{t.status}</span><span className="detail-value">{PAYMENT_LABELS[order.payment_status] || order.payment_status}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.so_provider_label}</span><span className="detail-value">{order.payment_provider || "—"}</span></div>
             {order.payment_provider === "stripe" && order.payment_ref && (
               <div className="detail-row">
                 <span className="detail-label">Stripe</span>
-                <a href={`https://dashboard.stripe.com/test/payments/${order.payment_ref}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>Открыть в Stripe →</a>
+                <a href={`https://dashboard.stripe.com/test/payments/${order.payment_ref}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>{t.so_open_in_stripe}</a>
               </div>
             )}
             {order.payment_status === "paid" && (
               <button className="btn btn-sm" disabled={refunding} onClick={doRefund}
                 style={{ background: "#FEE2E2", color: "#DC2626", marginTop: 10 }}>
-                ↩ Оформить возврат
+                {t.so_refund_btn}
               </button>
             )}
           </div>
 
-          <EconomicsBlock order={order} showToast={onError} />
+          <EconomicsBlock t={t} order={order} showToast={onError} />
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Связь</div>
+            <div className="drawer-section-title">{t.so_communication_section}</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: 12 }}>
               <span className="badge" style={{ background: "#F3F4F6", color: "#374151" }}>✉️ Email ✓</span>
               <span className="badge" style={{ background: order.customer_phone ? "#F3F4F6" : "#F9FAFB", color: order.customer_phone ? "#374151" : "#C0C5CC" }}>💬 WhatsApp {order.customer_phone ? "✓" : "—"}</span>
               <span className="badge" style={{ background: "#F9FAFB", color: "#C0C5CC" }}>📱 Telegram —</span>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => onContact(order)}>Написать</button>
+            <button className="btn btn-primary btn-sm" onClick={() => onContact(order)}>{t.so_write_title}</button>
           </div>
 
         </div>
@@ -387,7 +409,7 @@ function OrderDrawer({ order, onClose, onUpdated, onContact, onError }) {
   );
 }
 
-function PackagingSelect({ order, onUpdated, showToast }) {
+function PackagingSelect({ t, order, onUpdated, showToast }) {
   const [boxes, setBoxes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [packagingId, setPackagingId] = useState(order.packaging_item_id || "");
@@ -402,7 +424,7 @@ function PackagingSelect({ order, onUpdated, showToast }) {
         .select("id, name, stock_qty, avg_price_net")
         .eq("category", "shipping_materials")
         .order("name");
-      if (error) { showToast("Ошибка загрузки коробок: " + error.message); setLoading(false); return; }
+      if (error) { showToast(t.so_err_load_boxes + error.message); setLoading(false); return; }
       if (cancelled) return;
       const list = data || [];
       setBoxes(list);
@@ -423,28 +445,28 @@ function PackagingSelect({ order, onUpdated, showToast }) {
     setSaving(true);
     const { error } = await supabase.from("shop_orders").update({ packaging_item_id: id || null }).eq("id", order.id);
     setSaving(false);
-    if (error) { showToast("Не удалось сохранить упаковку: " + error.message); return; }
+    if (error) { showToast(t.so_err_save_packaging + error.message); return; }
     setPackagingId(id || "");
     onUpdated({ id: order.id, packaging_item_id: id || null });
-    if (!silent) showToast("Упаковка сохранена");
+    if (!silent) showToast(t.so_packaging_saved);
   }
 
   if (loading) return null;
 
   return (
     <div className="form-group" style={{ marginTop: 10 }}>
-      <label className="form-label">Упаковка отправки</label>
+      <label className="form-label">{t.so_packaging_label}</label>
       <select className="input" value={packagingId} disabled={saving} onChange={e => save(e.target.value)}>
-        <option value="">— не выбрано (оценка из настроек) —</option>
+        <option value="">{t.so_packaging_none_opt}</option>
         {boxes.map(b => (
-          <option key={b.id} value={b.id}>{b.name} · остаток {b.stock_qty} · {fmtMoney(b.avg_price_net)}</option>
+          <option key={b.id} value={b.id}>{b.name} · {t.whr_remaining_word} {b.stock_qty} · {fmtMoney(b.avg_price_net)}</option>
         ))}
       </select>
     </div>
   );
 }
 
-function EconomicsBlock({ order, showToast }) {
+function EconomicsBlock({ t, order, showToast }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
@@ -456,8 +478,8 @@ function EconomicsBlock({ order, showToast }) {
         supabase.from("orders").select("id").eq("shop_order_id", order.id),
         supabase.from("warehouse_economics_settings").select("*").eq("id", 1).single(),
       ]);
-      if (crmErr) showToast("Ошибка загрузки заказов CRM: " + crmErr.message);
-      if (setErr) showToast("Ошибка загрузки настроек экономики: " + setErr.message);
+      if (crmErr) showToast(t.an_err_load_crm_orders + crmErr.message);
+      if (setErr) showToast(t.wf_err_load_economics + setErr.message);
       if (cancelled) return;
 
       const refs = [...(crmOrders || []).map(o => o.id), order.id];
@@ -465,13 +487,13 @@ function EconomicsBlock({ order, showToast }) {
         .from("warehouse_movements")
         .select("movement_type, unit, unit_cost, qty_change, item_id")
         .in("reference", refs);
-      if (mvErr) { showToast("Ошибка загрузки движений склада: " + mvErr.message); setLoading(false); return; }
+      if (mvErr) { showToast(t.an_err_load_warehouse_movements + mvErr.message); setLoading(false); return; }
 
       const itemIds = [...new Set((movements || []).map(m => m.item_id).filter(Boolean))];
       const itemCategoryById = {};
       if (itemIds.length) {
         const { data: items, error: itemsErr } = await supabase.from("warehouse_items").select("id, category").in("id", itemIds);
-        if (itemsErr) showToast("Ошибка загрузки позиций склада: " + itemsErr.message);
+        if (itemsErr) showToast(t.an_err_load_warehouse_positions + itemsErr.message);
         (items || []).forEach(it => { itemCategoryById[it.id] = it.category; });
       }
 
@@ -507,28 +529,28 @@ function EconomicsBlock({ order, showToast }) {
   if (loading) {
     return (
       <div className="drawer-section">
-        <div className="drawer-section-title">Экономика заказа</div>
-        <div className="empty-state">Загрузка...</div>
+        <div className="drawer-section-title">{t.so_economics_section}</div>
+        <div className="empty-state">{t.loading}</div>
       </div>
     );
   }
   if (!data) return null;
 
   const rows = [
-    ["Выручка", data.revenue],
-    ["Зерно", -data.beanCost],
-    ["Пакеты", -data.bagCost],
-    ["Этикетки", -data.labelCost],
-    [data.boxIsEstimate ? "Упаковка отправки (оценка)" : "Упаковка отправки", -data.boxCost],
-    ["Доставка", -data.shippingCost],
-    ["Комиссия оплаты", -data.commissionCost],
+    [t.total_revenue, data.revenue],
+    [t.sp_bean_col, -data.beanCost],
+    [t.so_bags_row, -data.bagCost],
+    [t.whr_cat_labels, -data.labelCost],
+    [data.boxIsEstimate ? t.so_packaging_estimate_row : t.so_packaging_label, -data.boxCost],
+    [t.so_delivery_section, -data.shippingCost],
+    [t.so_commission_row, -data.commissionCost],
   ];
 
   return (
     <div className="drawer-section">
-      <div className="drawer-section-title">Экономика заказа</div>
+      <div className="drawer-section-title">{t.so_economics_section}</div>
       {data.hasShortage && (
-        <div style={{ fontSize: 11, color: "#B45309", marginBottom: 8 }}>⚠ При списании была нехватка позиций — расчёт может быть неполным</div>
+        <div style={{ fontSize: 11, color: "#B45309", marginBottom: 8 }}>{t.so_shortage_warning}</div>
       )}
       {rows.map(([label, value]) => (
         <div key={label} className="detail-row">
@@ -537,7 +559,7 @@ function EconomicsBlock({ order, showToast }) {
         </div>
       ))}
       <div className="detail-row">
-        <span className="detail-label" style={{ fontWeight: 700 }}>Прибыль</span>
+        <span className="detail-label" style={{ fontWeight: 700 }}>{t.so_profit_row}</span>
         <span className="detail-value" style={{ fontWeight: 700, color: data.profit >= 0 ? "#16A34A" : "#DC2626" }}>
           {fmtMoney(data.profit)} ({data.margin.toFixed(1)}%)
         </span>

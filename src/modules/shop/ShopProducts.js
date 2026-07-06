@@ -1,16 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { T } from "../../lib/i18n";
 
 const fmtMoney = (n) => n != null ? `${Number(n).toFixed(2)} zł` : "—";
 
-const STOCK_LABELS = { in_stock: "В наличии", low: "Мало", out: "Нет" };
+function getStockLabels(t) {
+  return { in_stock: t.sp_stock_in_stock, low: t.sp_stock_low, out: t.sp_stock_out };
+}
 const STOCK_PILL = {
   in_stock: { bg: "#F0FDF4", color: "#15803D", border: "#BBF7D0" },
   low: { bg: "#FFFBEB", color: "#B45309", border: "#FDE68A" },
   out: { bg: "#FFF1F2", color: "#BE123C", border: "#FECDD3" },
 };
-const ROAST_LABELS = { light: "Светлая", medium: "Средняя", "medium-dark": "Средне-тёмная", dark: "Тёмная" };
-const PROCESS_OPTIONS = ["Мытая", "Натуральная", "Хани", "Анаэробная"];
+function getRoastLabels(t) {
+  return { light: t.sp_roast_light, medium: t.sp_roast_medium, "medium-dark": t.sp_roast_medium_dark, dark: t.sp_roast_dark };
+}
+// value — каноническое (русское) значение, хранимое в shop_products.process; labelKey — переводимая подпись.
+function getProcessOptions(t) {
+  return [
+    { value: "Мытая", labelKey: "sp_process_washed" },
+    { value: "Натуральная", labelKey: "sp_process_natural" },
+    { value: "Хани", labelKey: "sp_process_honey" },
+    { value: "Анаэробная", labelKey: "sp_process_anaerobic" },
+  ];
+}
+function tpl(str, vars) {
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
 
 const PRESET_NOTES = {
   ru: ["Орехи", "Молочный шоколад", "Карамель", "Фундук", "Какао", "Миндаль", "Шоколад", "Спелая слива", "Тёмный шоколад", "Апельсин", "Спелые фрукты", "Ягоды", "Цитрус", "Цветочные ноты", "Косточковые фрукты", "Жареный миндаль"],
@@ -37,7 +53,9 @@ const EDITABLE_FIELD_KEYS = [
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
 ];
 
-export default function ShopProducts() {
+export default function ShopProducts({ lang }) {
+  const t = T[lang];
+  const STOCK_LABELS = getStockLabels(t);
   const [products, setProducts] = useState([]);
   const [soldMap, setSoldMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -57,10 +75,10 @@ export default function ShopProducts() {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.from("shop_products").select("*").order("sort_order", { ascending: true });
-    if (error) showToast("Ошибка загрузки товаров: " + error.message);
+    if (error) showToast(t.sp_err_load_products + error.message);
     setProducts(data || []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   const fetchSold = useCallback(async () => {
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
@@ -68,14 +86,14 @@ export default function ShopProducts() {
       .from("shop_order_items")
       .select("shop_product_id, quantity, shop_orders!inner(created_at)")
       .gte("shop_orders.created_at", since);
-    if (error) { showToast("Ошибка загрузки продаж: " + error.message); return; }
+    if (error) { showToast(t.sp_err_load_sales + error.message); return; }
     const map = {};
     (data || []).forEach(row => {
       if (!row.shop_product_id) return;
       map[row.shop_product_id] = (map[row.shop_product_id] || 0) + row.quantity;
     });
     setSoldMap(map);
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchProducts(); fetchSold(); }, [fetchProducts, fetchSold]);
 
@@ -86,7 +104,7 @@ export default function ShopProducts() {
 
   async function saveField(id, field, value) {
     const { error } = await supabase.from("shop_products").update({ [field]: value }).eq("id", id);
-    if (error) { showToast("Не удалось сохранить: " + error.message); return; }
+    if (error) { showToast(t.wf_err_save + error.message); return; }
     handleUpdated({ id, [field]: value });
   }
 
@@ -105,7 +123,7 @@ export default function ShopProducts() {
 
   async function toggleActive(p) {
     if (!p.is_active && !isPublishable(p)) {
-      showToast("Нельзя опубликовать: нужны фото и описания на RU/PL/UA");
+      showToast(t.sp_cannot_publish_toast);
       return;
     }
     await saveField(p.id, "is_active", !p.is_active);
@@ -126,7 +144,7 @@ export default function ShopProducts() {
     dragIndexRef.current = null;
     const results = await Promise.all(reordered.map((p, i) => supabase.from("shop_products").update({ sort_order: i }).eq("id", p.id)));
     const failed = results.find(r => r.error);
-    if (failed) showToast("Не удалось сохранить порядок: " + failed.error.message);
+    if (failed) showToast(t.sp_err_save_order + failed.error.message);
     reordered.forEach((p, i) => { p.sort_order = i; });
   }
 
@@ -135,29 +153,29 @@ export default function ShopProducts() {
   return (
     <div>
       <div className="topbar">
-        <span className="topbar-title">Товары магазина ({products.length})</span>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAddFromCrm(true)}>+ Товар из CRM</button>
+        <span className="topbar-title">{t.nav_shop_products} ({products.length})</span>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowAddFromCrm(true)}>{t.sp_add_from_crm_btn}</button>
       </div>
       <div className="content">
-        <input className="search-bar" placeholder="Поиск по названию..." value={search} onChange={e => setSearch(e.target.value)} />
-        {loading ? <div className="empty-state">Загрузка...</div> : (
+        <input className="search-bar" placeholder={t.sp_search_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
+        {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th></th><th>Фото</th><th>Название</th><th>250г</th><th>500г</th><th>1кг</th>
-                  <th>Наличие</th><th>Продано за 30д</th><th>Статус</th>
+                  <th></th><th>{t.sp_photo_col}</th><th>{t.wh_name_col}</th><th>{`250${t.unit_g}`}</th><th>{`500${t.unit_g}`}</th><th>1{t.unit_kg}</th>
+                  <th>{t.sp_stock_col}</th><th>{t.sp_sold_30d_col}</th><th>{t.status}</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? <tr><td colSpan={9} className="empty-state">Нет товаров</td></tr> : filtered.map((p, i) => (
+                {filtered.length === 0 ? <tr><td colSpan={9} className="empty-state">{t.sp_no_products}</td></tr> : filtered.map((p, i) => (
                   <tr key={p.id} className="drag-row"
                     draggable
                     onDragStart={() => onDragStart(i)}
                     onDragOver={e => e.preventDefault()}
                     onDrop={() => onDrop(i)}
                   >
-                    <td className="drag-handle" title="Перетащить для смены порядка">⠿</td>
+                    <td className="drag-handle" title={t.sp_drag_title}>⠿</td>
                     <td>
                       {p.images?.[0]
                         ? <img src={p.images[0]} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover" }} />
@@ -165,7 +183,7 @@ export default function ShopProducts() {
                     </td>
                     <td style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => setSelected(p)}>
                       {p.name_ru}
-                      {!isPublishable(p) && <div style={{ fontSize: 10, color: "#B45309" }}>не хватает данных для публикации</div>}
+                      {!isPublishable(p) && <div style={{ fontSize: 10, color: "#B45309" }}>{t.sp_missing_data_hint}</div>}
                     </td>
                     {["price_250", "price_500", "price_1000"].map(field => (
                       <td key={field} className="inline-edit-cell" onClick={() => startEdit(p, field)}>
@@ -199,7 +217,7 @@ export default function ShopProducts() {
                     </td>
                     <td style={{ textAlign: "center", color: "#4B5563" }}>{soldMap[p.id] || 0}</td>
                     <td>
-                      <label className="toggle-switch" title={p.is_active ? "Активен" : "Скрыт"}>
+                      <label className="toggle-switch" title={p.is_active ? t.promo_active_col : t.sp_hidden_title}>
                         <input type="checkbox" checked={!!p.is_active} onChange={() => toggleActive(p)} />
                         <span className="toggle-slider" />
                       </label>
@@ -211,9 +229,10 @@ export default function ShopProducts() {
           </div>
         )}
       </div>
-      {selected && <ProductDrawer product={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onError={showToast} />}
+      {selected && <ProductDrawer t={t} product={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onError={showToast} />}
       {showAddFromCrm && (
         <AddFromCrmModal
+          t={t}
           existingIds={products.map(p => p.crm_product_id).filter(Boolean)}
           onClose={() => setShowAddFromCrm(false)}
           onCreated={(p) => { setShowAddFromCrm(false); fetchProducts(); setSelected(p); }}
@@ -225,23 +244,23 @@ export default function ShopProducts() {
   );
 }
 
-function AddFromCrmModal({ existingIds, onClose, onCreated, onError }) {
+function AddFromCrmModal({ t, existingIds, onClose, onCreated, onError }) {
   const [crmProducts, setCrmProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creatingId, setCreatingId] = useState(null);
 
   useEffect(() => {
     supabase.from("products").select("*").order("code").then(({ data, error }) => {
-      if (error) onError("Ошибка загрузки товаров CRM: " + error.message);
+      if (error) onError(t.sp_err_load_crm_products + error.message);
       setCrmProducts((data || []).filter(p => !existingIds.includes(p.id)));
       setLoading(false);
     });
-  }, [existingIds, onError]);
+  }, [existingIds, onError, t]);
 
   async function addProduct(cp) {
     setCreatingId(cp.id);
     const { data: last, error: lastError } = await supabase.from("shop_products").select("sort_order").order("sort_order", { ascending: false }).limit(1);
-    if (lastError) { onError("Ошибка: " + lastError.message); setCreatingId(null); return; }
+    if (lastError) { onError(t.promo_err_generic + lastError.message); setCreatingId(null); return; }
     const nextSortOrder = last?.[0] ? last[0].sort_order + 1 : 0;
     const slug = slugify(cp.name);
     const { data, error } = await supabase.from("shop_products").insert([{
@@ -262,16 +281,16 @@ function AddFromCrmModal({ existingIds, onClose, onCreated, onError }) {
       sort_order: nextSortOrder,
     }]).select().single();
     setCreatingId(null);
-    if (error) { onError("Не удалось добавить товар: " + error.message); return; }
+    if (error) { onError(t.sp_err_add_product + error.message); return; }
     if (data) onCreated(data);
   }
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 480 }}>
-        <div className="modal-title">Добавить товар из CRM</div>
-        {loading ? <div className="empty-state">Загрузка...</div> : crmProducts.length === 0 ? (
-          <div className="empty-state">Все товары CRM уже добавлены в магазин</div>
+        <div className="modal-title">{t.sp_add_from_crm_title}</div>
+        {loading ? <div className="empty-state">{t.loading}</div> : crmProducts.length === 0 ? (
+          <div className="empty-state">{t.sp_all_crm_added}</div>
         ) : (
           <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
             {crmProducts.map(cp => (
@@ -281,19 +300,19 @@ function AddFromCrmModal({ existingIds, onClose, onCreated, onError }) {
                   <div style={{ fontSize: 11, color: "#6B7280" }}>{cp.country} · {cp.code}</div>
                 </div>
                 <button className="btn btn-secondary btn-sm" disabled={creatingId === cp.id} onClick={() => addProduct(cp)}>
-                  {creatingId === cp.id ? "…" : "Добавить"}
+                  {creatingId === cp.id ? "…" : t.add}
                 </button>
               </div>
             ))}
           </div>
         )}
-        <div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Закрыть</button></div>
+        <div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>{t.close}</button></div>
       </div>
     </div>
   );
 }
 
-function NoteChips({ value, lang, onChange }) {
+function NoteChips({ t, value, lang, onChange }) {
   const selected = (value || "").split("•").map(s => s.trim()).filter(Boolean);
   const [custom, setCustom] = useState("");
 
@@ -318,7 +337,7 @@ function NoteChips({ value, lang, onChange }) {
         ))}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
-        <input className="input" placeholder="Своя нота..." value={custom} onChange={e => setCustom(e.target.value)}
+        <input className="input" placeholder={t.sp_custom_note_placeholder} value={custom} onChange={e => setCustom(e.target.value)}
           onKeyDown={e => e.key === "Enter" && addCustom()} />
         <button className="btn btn-secondary btn-sm" onClick={addCustom}>+</button>
       </div>
@@ -326,20 +345,22 @@ function NoteChips({ value, lang, onChange }) {
   );
 }
 
-function ProductDrawer({ product, onClose, onUpdated, onError }) {
+function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
   const [form, setForm] = useState(product);
   const [descTab, setDescTab] = useState("ru");
   const [uploading, setUploading] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const dragImgIndex = useRef(null);
   const fileInputRef = useRef(null);
+  const ROAST_LABELS = getRoastLabels(t);
+  const PROCESS_OPTIONS = getProcessOptions(t);
 
   useEffect(() => { setForm(product); }, [product]);
 
   async function saveFields(fields) {
     setForm(prev => ({ ...prev, ...fields }));
     const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
-    if (error) { onError("Не удалось сохранить: " + error.message); return; }
+    if (error) { onError(t.wf_err_save + error.message); return; }
     onUpdated({ id: product.id, ...fields });
   }
 
@@ -349,9 +370,9 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
     EDITABLE_FIELD_KEYS.forEach(k => { fields[k] = form[k] === "" ? null : form[k]; });
     const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
     setSavingAll(false);
-    if (error) { onError("Не удалось сохранить: " + error.message); return; }
+    if (error) { onError(t.wf_err_save + error.message); return; }
     onUpdated({ id: product.id, ...fields });
-    onError("Товар сохранён");
+    onError(t.sp_product_saved);
   }
 
   async function uploadImages(files) {
@@ -369,7 +390,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
       }
     }
     setUploading(false);
-    if (failures.length) onError("Ошибка загрузки фото — " + failures.join("; "));
+    if (failures.length) onError(t.sp_err_photo_upload + failures.join("; "));
     if (uploaded.length) await saveFields({ images: [...(form.images || []), ...uploaded] });
   }
 
@@ -386,7 +407,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
     const path = img && storagePathFromUrl(img);
     if (path) {
       const { error } = await supabase.storage.from("shop").remove([path]);
-      if (error) onError("Фото убрано из товара, но не удалилось из хранилища: " + error.message);
+      if (error) onError(t.sp_photo_removed_err + error.message);
     }
   }
 
@@ -413,7 +434,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
         <div className="drawer-body">
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Фото (первое — главное)</div>
+            <div className="drawer-section-title">{t.sp_photo_section}</div>
             <div className="img-thumb-list">
               {(form.images || []).map((img, i) => (
                 <div key={img + i} className={"img-thumb" + (i === 0 ? " main" : "")}
@@ -429,35 +450,35 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Основное</div>
+            <div className="drawer-section-title">{t.sp_main_section}</div>
             <div className="form-group">
-              <label className="form-label">Название (RU)</label>
+              <label className="form-label">{t.sp_name_ru_label}</label>
               <input className="input" value={form.name_ru || ""} onChange={e => setForm({ ...form, name_ru: e.target.value })} onBlur={() => saveFields({ name_ru: form.name_ru })} />
             </div>
             <div className="form-group">
-              <label className="form-label">Slug</label>
+              <label className="form-label">{t.sp_slug_label}</label>
               <input className="input" value={form.slug || ""} onChange={e => setForm({ ...form, slug: e.target.value })} onBlur={() => saveFields({ slug: form.slug })} />
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Страна</label>
+                <label className="form-label">{t.country}</label>
                 <input className="input" value={form.origin || ""} onChange={e => setForm({ ...form, origin: e.target.value })} onBlur={() => saveFields({ origin: form.origin })} />
               </div>
               <div className="form-group">
-                <label className="form-label">Высота</label>
-                <input className="input" placeholder="1200–1800 м" value={form.altitude || ""} onChange={e => setForm({ ...form, altitude: e.target.value })} onBlur={() => saveFields({ altitude: form.altitude })} />
+                <label className="form-label">{t.sp_altitude_label}</label>
+                <input className="input" placeholder={t.sp_altitude_placeholder} value={form.altitude || ""} onChange={e => setForm({ ...form, altitude: e.target.value })} onBlur={() => saveFields({ altitude: form.altitude })} />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Обработка</label>
+                <label className="form-label">{t.sp_process_label}</label>
                 <select className="input" value={form.process || ""} onChange={e => saveFields({ process: e.target.value })}>
                   <option value="">—</option>
-                  {PROCESS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {PROCESS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t[o.labelKey]}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Обжарка</label>
+                <label className="form-label">{t.sp_roast_label}</label>
                 <select className="input" value={form.roast_level || ""} onChange={e => saveFields({ roast_level: e.target.value })}>
                   <option value="">—</option>
                   {Object.keys(ROAST_LABELS).map(r => <option key={r} value={r}>{ROAST_LABELS[r]}</option>)}
@@ -467,36 +488,36 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Вкусовые ноты</div>
+            <div className="drawer-section-title">{t.flavor_notes}</div>
             <div className="tabs-row">
               {["ru", "pl", "ua"].map(l => (
                 <button key={l} className={"tab-btn" + (descTab === l ? " active" : "")} onClick={() => setDescTab(l)}>{l.toUpperCase()}</button>
               ))}
             </div>
-            <NoteChips value={form[`flavor_notes_${descTab}`]} lang={descTab} onChange={v => saveFields({ [`flavor_notes_${descTab}`]: v })} />
+            <NoteChips t={t} value={form[`flavor_notes_${descTab}`]} lang={descTab} onChange={v => saveFields({ [`flavor_notes_${descTab}`]: v })} />
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">Цены по весам</div>
+            <div className="drawer-section-title">{t.sp_prices_section}</div>
             {[250, 500, 1000].map(w => (
               <div key={w} className="form-row" style={{ marginBottom: 8 }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">{w}г — цена</label>
+                  <label className="form-label">{tpl(t.sp_price_label, { w })}</label>
                   <input className="input" type="number" value={form[`price_${w}`] ?? ""} onChange={e => setForm({ ...form, [`price_${w}`]: e.target.value })} onBlur={() => saveFields({ [`price_${w}`]: form[`price_${w}`] || null })} />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Старая цена (для акций)</label>
+                  <label className="form-label">{t.sp_old_price_label}</label>
                   <input className="input" type="number" value={form[`old_price_${w}`] ?? ""} onChange={e => setForm({ ...form, [`old_price_${w}`]: e.target.value })} onBlur={() => saveFields({ [`old_price_${w}`]: form[`old_price_${w}`] || null })} />
                 </div>
               </div>
             ))}
           </div>
 
-          <CostMarginBlock product={form} showToast={onError} />
+          <CostMarginBlock t={t} product={form} showToast={onError} />
 
           <div className="drawer-section">
             <div className="drawer-section-title">
-              Описания (RU/PL/UA) {!publishable && <span style={{ color: "#B45309", fontWeight: 400 }}>— обязательны для публикации</span>}
+              {t.sp_descriptions_section} {!publishable && <span style={{ color: "#B45309", fontWeight: 400 }}>{t.sp_required_for_publish}</span>}
             </div>
             <div className="tabs-row">
               {["ru", "pl", "ua"].map(l => (
@@ -513,19 +534,19 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">SEO</div>
+            <div className="drawer-section-title">{t.sp_seo_section}</div>
             <div className="form-group">
-              <label className="form-label">SEO title</label>
+              <label className="form-label">{t.sp_seo_title_label}</label>
               <input className="input" value={form.seo_title || ""} onChange={e => setForm({ ...form, seo_title: e.target.value })} onBlur={() => saveFields({ seo_title: form.seo_title })} />
             </div>
             <div className="form-group">
-              <label className="form-label">SEO description</label>
+              <label className="form-label">{t.sp_seo_desc_label}</label>
               <textarea className="input" rows={2} value={form.seo_description || ""} onChange={e => setForm({ ...form, seo_description: e.target.value })} onBlur={() => saveFields({ seo_description: form.seo_description })} />
             </div>
           </div>
 
           <button className="btn btn-primary" style={{ width: "100%" }} disabled={savingAll} onClick={saveAll}>
-            {savingAll ? "…" : "Сохранить"}
+            {savingAll ? "…" : t.save}
           </button>
 
         </div>
@@ -534,7 +555,7 @@ function ProductDrawer({ product, onClose, onUpdated, onError }) {
   );
 }
 
-function CostMarginBlock({ product, showToast }) {
+function CostMarginBlock({ t, product, showToast }) {
   const [loading, setLoading] = useState(true);
   const [sortInfo, setSortInfo] = useState(null);
   const [bagCosts, setBagCosts] = useState({});
@@ -550,9 +571,9 @@ function CostMarginBlock({ product, showToast }) {
         supabase.from("warehouse_items").select("category, avg_price_net").in("category", ["bags_250", "bags_500", "bags_1000"]),
         supabase.from("warehouse_items").select("avg_price_net").eq("category", "labels").order("stock_qty", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (cpErr) showToast("Ошибка загрузки товара CRM: " + cpErr.message);
-      if (bagsErr) showToast("Ошибка загрузки пакетов: " + bagsErr.message);
-      if (labelErr) showToast("Ошибка загрузки этикеток: " + labelErr.message);
+      if (cpErr) showToast(t.sp_err_load_crm_product + cpErr.message);
+      if (bagsErr) showToast(t.sp_err_load_bags + bagsErr.message);
+      if (labelErr) showToast(t.sp_err_load_labels + labelErr.message);
       if (cancelled) return;
 
       const bc = {};
@@ -568,11 +589,11 @@ function CostMarginBlock({ product, showToast }) {
       let avgCostPerKg = 0;
       if (crmProduct.country === "Купаж") {
         const { data: blends, error } = await supabase.from("blend_batches").select("cost_per_kg").eq("blend_name", crmProduct.name).order("mix_date", { ascending: false }).limit(1);
-        if (error) showToast("Ошибка загрузки купажей: " + error.message);
+        if (error) showToast(t.wf_err_load_blends + error.message);
         avgCostPerKg = blends?.[0] ? Number(blends[0].cost_per_kg) : 0;
       } else {
         const { data: roasts, error } = await supabase.from("roast_batches").select("cost_per_kg").eq("sort_name", crmProduct.name).order("roast_date", { ascending: false }).limit(1);
-        if (error) showToast("Ошибка загрузки обжарок: " + error.message);
+        if (error) showToast(t.wf_err_load_roasts + error.message);
         avgCostPerKg = roasts?.[0] ? Number(roasts[0].cost_per_kg) : 0;
       }
       if (!cancelled) {
@@ -588,30 +609,30 @@ function CostMarginBlock({ product, showToast }) {
   if (loading) {
     return (
       <div className="drawer-section">
-        <div className="drawer-section-title">Себестоимость и маржа</div>
-        <div className="empty-state">Загрузка...</div>
+        <div className="drawer-section-title">{t.sp_cost_margin_section}</div>
+        <div className="empty-state">{t.loading}</div>
       </div>
     );
   }
   if (!sortInfo) {
     return (
       <div className="drawer-section">
-        <div className="drawer-section-title">Себестоимость и маржа</div>
-        <div className="empty-state">Не удалось найти связанный товар CRM</div>
+        <div className="drawer-section-title">{t.sp_cost_margin_section}</div>
+        <div className="empty-state">{t.sp_no_crm_link}</div>
       </div>
     );
   }
 
   return (
     <div className="drawer-section">
-      <div className="drawer-section-title">Себестоимость и маржа</div>
+      <div className="drawer-section-title">{t.sp_cost_margin_section}</div>
       {sortInfo.avgCostPerKg === 0 && (
         <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8 }}>
-          Ещё не было {sortInfo.country === "Купаж" ? "купажирования" : "обжарки"} для «{sortInfo.name}» — себестоимость зерна пока 0
+          {tpl(t.sp_no_data_yet, { action: sortInfo.country === "Купаж" ? t.sp_blending_word : t.sp_roasting_word, name: sortInfo.name })}
         </div>
       )}
       <table className="table">
-        <thead><tr><th>Вес</th><th>Зерно</th><th>Пакет</th><th>Этикетка</th><th>Себестоимость</th><th>Цена</th><th>Маржа</th></tr></thead>
+        <thead><tr><th>{t.weight}</th><th>{t.sp_bean_col}</th><th>{t.sp_bag_col}</th><th>{t.sp_label_col}</th><th>{t.sp_cost_col}</th><th>{t.price}</th><th>{t.sp_margin_col}</th></tr></thead>
         <tbody>
           {[250, 500, 1000].map(w => {
             const beanCost = sortInfo.avgCostPerKg * (w / 1000);
@@ -621,7 +642,7 @@ function CostMarginBlock({ product, showToast }) {
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
             return (
               <tr key={w}>
-                <td>{w}г</td>
+                <td>{w}{t.unit_g}</td>
                 <td>{fmtMoney(beanCost)}</td>
                 <td>{fmtMoney(bagCost)}</td>
                 <td>{fmtMoney(labelCost)}</td>

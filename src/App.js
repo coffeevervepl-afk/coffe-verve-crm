@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "qrcode";
 import { supabase } from "./lib/supabaseClient";
+import { T } from "./lib/i18n";
 import ShopOrders from "./modules/shop/ShopOrders";
 import ShopProducts from "./modules/shop/ShopProducts";
 import ShopReviews from "./modules/shop/ShopReviews";
@@ -14,190 +15,9 @@ import Login from "./modules/auth/Login";
 import SetPassword from "./modules/auth/SetPassword";
 
 // ============================================================
-// ПЕРЕВОДЫ
+// ПЕРЕВОДЫ — вынесены в src/lib/i18n.js, чтобы модули shop/*
+// и warehouse/* могли импортировать T без циклической зависимости от App.js.
 // ============================================================
-const T = {
-  ru: {
-    dashboard: "Дашборд", clients: "Клиенты", orders: "Заказы",
-    products: "Товары", warranties: "Гарантии", staff: "Сотрудники",
-    settings: "Настройки", search: "Поиск...", add: "Добавить",
-    save: "Сохранить", cancel: "Отмена", delete: "Удалить",
-    edit: "Редактировать", close: "Закрыть", print_qr: "Скачать QR",
-    total_clients: "Клиентов", total_orders: "Заказов",
-    total_revenue: "Выручка", avg_check: "Средний чек",
-    new_this_month: "Новых за месяц", repeat_buyers: "Повторных покупателей",
-    sleeping: "Спящих клиентов", top_clients: "Топ клиентов",
-    top_products: "Топ товаров", by_source: "По источнику",
-    by_language: "По языку", by_city: "По городу",
-    order_history: "История заказов", client_card: "Карточка клиента",
-    new_order: "Новый заказ", new_client: "Новый клиент", print_label: "Этикетка", print_sending: "Отправка...", print_ok: "✅ Отправлено в печать!", print_err: "❌ Ошибка. Проверь N8N webhook.",
-    status_new: "Новый", status_processing: "В обработке",
-    status_shipped: "Отправлен", status_completed: "Выполнен",
-    status_cancelled: "Отменён", weight: "Вес", price: "Цена",
-    product: "Товар", client: "Клиент", date: "Дата",
-    status: "Статус", notes: "Заметки", source: "Источник",
-    city: "Город", language: "Язык", phone: "Телефон",
-    email: "Email", telegram: "Telegram", roast_date: "Дата обжарки",
-    warranty_requests: "Заявок по гарантии", warranty_pct: "% от заказов",
-    no_data: "Нет данных", loading: "Загрузка...", error: "Ошибка",
-    name: "Имя", total: "Итого", orders_count: "Заказов",
-    last_order: "Последний заказ", flavor_notes: "Вкусовые ноты",
-    country: "Страна", available: "Наличие", purpose: "Назначение",
-    price_250: "250г (zł)", price_500: "500г (zł)", price_1000: "1000г (zł)",
-    revenue_by_month: "Выручка по месяцам", activate_warranty: "Активировать гарантию",
-    warranty_reason: "Причина обращения", warranty_activated: "Гарантия активирована",
-    replace: "Заменить кофе", refund: "Вернуть деньги", pending: "Ожидает решения",
-    resolved: "Решено", role: "Роль", owner: "Владелец", employee: "Сотрудник",
-    coffee_passport: "Паспорт кофе", scan_qr: "Сканируй QR для паспорта заказа",
-    months: ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"],
-    username: "Username",
-    reviews: "Отзывы", review_pending: "На модерации", review_approved: "Опубликован",
-    review_rejected: "Отклонён", review_author: "Автор", review_rating: "Рейтинг",
-    review_text: "Текст", review_response: "Ответ продавца", review_approve: "✅ Опубликовать",
-    review_reject: "❌ Отклонить", review_all: "Все", review_filter: "Фильтр",
-    review_save_response: "Сохранить ответ", review_product: "Товар",
-    discounts: "Скидки", loyalty: "Лояльность",
-    promo_code: "Промокод", promo_type: "Тип", promo_value: "Значение",
-    promo_min_order: "Мин. заказ", promo_valid_until: "Действует до",
-    promo_max_uses: "Лимит", promo_used: "Исп.", promo_category: "Категория",
-    promo_active: "Активен", promo_create: "Создать промокод",
-    promo_fixed: "Фиксированный (zł)", promo_percent: "Процент (%)",
-    promo_one_per: "1 раз на клиента", promo_generate: "Сгенерировать",
-    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
-    level_b2b: "B2B", spent_12m: "Оборот за 12м",
-    loyalty_config: "Настройки лояльности", loyalty_clients: "Клиенты по уровням",
-    recalc: "Пересчитать уровень", recalc_ok: "Уровень пересчитан",
-    b2b_client: "B2B клиент", b2b_discount: "Скидка B2B (%)",
-    referral_code_lbl: "Реф. код", referral_rewarded: "Реферал вознаграждён",
-    gold_threshold: "Порог Gold (zł)", platinum_threshold: "Порог Platinum (zł)",
-    classic_discount: "Скидка Classic (%)", gold_discount: "Скидка Gold (%)",
-    platinum_discount: "Скидка Platinum (%)", shop_loyalty: "Лояльность (магазин)",
-    no_shop_user: "Не зарегистрирован в магазине",
-    inactive_90: "Неактивные 90+ дней", min_discount_lbl: "Скидка гарантирована до",
-    last_purchase_lbl: "Посл. покупка", days_inactive_lbl: "Дней без покупок",
-    guaranteed_until: "Гарантировано до",
-  },
-  pl: {
-    dashboard: "Pulpit", clients: "Klienci", orders: "Zamówienia",
-    products: "Produkty", warranties: "Gwarancje", staff: "Pracownicy",
-    settings: "Ustawienia", search: "Szukaj...", add: "Dodaj",
-    save: "Zapisz", cancel: "Anuluj", delete: "Usuń",
-    edit: "Edytuj", close: "Zamknij", print_qr: "Pobierz QR",
-    total_clients: "Klientów", total_orders: "Zamówień",
-    total_revenue: "Przychód", avg_check: "Średni rachunek",
-    new_this_month: "Nowych w miesiącu", repeat_buyers: "Powracający klienci",
-    sleeping: "Śpiący klienci", top_clients: "Top klientów",
-    top_products: "Top produktów", by_source: "Wg źródła",
-    by_language: "Wg języka", by_city: "Wg miasta",
-    order_history: "Historia zamówień", client_card: "Karta klienta",
-    new_order: "Nowe zamówienie", print_label: "Etykieta", print_sending: "Wysyłanie...", print_ok: "✅ Wysłano do druku!", print_err: "❌ Błąd. Sprawdź webhook N8N.", new_client: "Nowy klient",
-    status_new: "Nowe", status_processing: "W trakcie",
-    status_shipped: "Wysłane", status_completed: "Zrealizowane",
-    status_cancelled: "Anulowane", weight: "Waga", price: "Cena",
-    product: "Produkt", client: "Klient", date: "Data",
-    status: "Status", notes: "Notatki", source: "Źródło",
-    city: "Miasto", language: "Język", phone: "Telefon",
-    email: "Email", telegram: "Telegram", roast_date: "Data palenia",
-    warranty_requests: "Wnioski gwarancyjne", warranty_pct: "% zamówień",
-    no_data: "Brak danych", loading: "Ładowanie...", error: "Błąd",
-    name: "Imię", total: "Suma", orders_count: "Zamówień",
-    last_order: "Ostatnie zamówienie", flavor_notes: "Nuty smakowe",
-    country: "Kraj", available: "Dostępność", purpose: "Przeznaczenie",
-    price_250: "250g (zł)", price_500: "500g (zł)", price_1000: "1000g (zł)",
-    revenue_by_month: "Przychód miesięczny", activate_warranty: "Aktywuj gwarancję",
-    warranty_reason: "Powód reklamacji", warranty_activated: "Gwarancja aktywowana",
-    replace: "Wymienić kawę", refund: "Zwrócić pieniądze", pending: "Oczekuje",
-    resolved: "Rozwiązano", role: "Rola", owner: "Właściciel", employee: "Pracownik",
-    coffee_passport: "Paszport kawy", scan_qr: "Zeskanuj QR dla paszportu",
-    months: ["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"],
-    username: "Nazwa użytkownika",
-    reviews: "Opinie", review_pending: "Do moderacji", review_approved: "Opublikowana",
-    review_rejected: "Odrzucona", review_author: "Autor", review_rating: "Ocena",
-    review_text: "Treść", review_response: "Odpowiedź sprzedawcy", review_approve: "✅ Opublikuj",
-    review_reject: "❌ Odrzuć", review_all: "Wszystkie", review_filter: "Filtr",
-    review_save_response: "Zapisz odpowiedź", review_product: "Produkt",
-    discounts: "Rabaty", loyalty: "Lojalność",
-    promo_code: "Kod promo", promo_type: "Typ", promo_value: "Wartość",
-    promo_min_order: "Min. zamówienie", promo_valid_until: "Ważny do",
-    promo_max_uses: "Limit", promo_used: "Użyty", promo_category: "Kategoria",
-    promo_active: "Aktywny", promo_create: "Utwórz kod promo",
-    promo_fixed: "Stały (zł)", promo_percent: "Procent (%)",
-    promo_one_per: "1 raz na klienta", promo_generate: "Generuj",
-    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
-    level_b2b: "B2B", spent_12m: "Obrót 12m",
-    loyalty_config: "Konfiguracja lojalnościowa", loyalty_clients: "Klienci wg poziomów",
-    recalc: "Przelicz poziom", recalc_ok: "Poziom przeliczony",
-    b2b_client: "Klient B2B", b2b_discount: "Rabat B2B (%)",
-    referral_code_lbl: "Kod ref.", referral_rewarded: "Polecający nagrodzony",
-    gold_threshold: "Próg Gold (zł)", platinum_threshold: "Próg Platinum (zł)",
-    classic_discount: "Rabat Classic (%)", gold_discount: "Rabat Gold (%)",
-    platinum_discount: "Rabat Platinum (%)", shop_loyalty: "Lojalność (sklep)",
-    no_shop_user: "Nie zarejestrowany w sklepie",
-    inactive_90: "Nieaktywni 90+ dni", min_discount_lbl: "Rabat gwarantowany do",
-    last_purchase_lbl: "Ost. zakup", days_inactive_lbl: "Dni bez zakupu",
-    guaranteed_until: "Gwarantowane do",
-  },
-  ua: {
-    dashboard: "Дашборд", clients: "Клієнти", orders: "Замовлення",
-    products: "Товари", warranties: "Гарантії", staff: "Співробітники",
-    settings: "Налаштування", search: "Пошук...", add: "Додати",
-    save: "Зберегти", cancel: "Скасувати", delete: "Видалити",
-    edit: "Редагувати", close: "Закрити", print_qr: "Завантажити QR",
-    total_clients: "Клієнтів", total_orders: "Замовлень",
-    total_revenue: "Виручка", avg_check: "Середній чек",
-    new_this_month: "Нових за місяць", repeat_buyers: "Постійних покупців",
-    sleeping: "Сплячих клієнтів", top_clients: "Топ клієнтів",
-    top_products: "Топ товарів", by_source: "За джерелом",
-    by_language: "За мовою", by_city: "За містом",
-    order_history: "Історія замовлень", client_card: "Картка клієнта",
-    new_order: "Нове замовлення", print_label: "Етикетка", print_sending: "Надсилання...", print_ok: "✅ Надіслано на друк!", print_err: "❌ Помилка. Перевір N8N webhook.", new_client: "Новий клієнт",
-    status_new: "Новий", status_processing: "В обробці",
-    status_shipped: "Відправлено", status_completed: "Виконано",
-    status_cancelled: "Скасовано", weight: "Вага", price: "Ціна",
-    product: "Товар", client: "Клієнт", date: "Дата",
-    status: "Статус", notes: "Нотатки", source: "Джерело",
-    city: "Місто", language: "Мова", phone: "Телефон",
-    email: "Email", telegram: "Telegram", roast_date: "Дата обсмажки",
-    warranty_requests: "Заявок по гарантії", warranty_pct: "% від замовлень",
-    no_data: "Немає даних", loading: "Завантаження...", error: "Помилка",
-    name: "Ім'я", total: "Підсумок", orders_count: "Замовлень",
-    last_order: "Останнє замовлення", flavor_notes: "Смакові ноти",
-    country: "Країна", available: "Наявність", purpose: "Призначення",
-    price_250: "250г (zł)", price_500: "500г (zł)", price_1000: "1000г (zł)",
-    revenue_by_month: "Виручка по місяцях", activate_warranty: "Активувати гарантію",
-    warranty_reason: "Причина звернення", warranty_activated: "Гарантію активовано",
-    replace: "Замінити каву", refund: "Повернути гроші", pending: "Очікує рішення",
-    resolved: "Вирішено", role: "Роль", owner: "Власник", employee: "Співробітник",
-    coffee_passport: "Паспорт кави", scan_qr: "Скануй QR для паспорта замовлення",
-    months: ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"],
-    username: "Username",
-    reviews: "Відгуки", review_pending: "На модерації", review_approved: "Опубліковано",
-    review_rejected: "Відхилено", review_author: "Автор", review_rating: "Рейтинг",
-    review_text: "Текст", review_response: "Відповідь продавця", review_approve: "✅ Опублікувати",
-    review_reject: "❌ Відхилити", review_all: "Всі", review_filter: "Фільтр",
-    review_save_response: "Зберегти відповідь", review_product: "Товар",
-    discounts: "Знижки", loyalty: "Лояльність",
-    promo_code: "Промокод", promo_type: "Тип", promo_value: "Значення",
-    promo_min_order: "Мін. замовлення", promo_valid_until: "Діє до",
-    promo_max_uses: "Ліміт", promo_used: "Вик.", promo_category: "Категорія",
-    promo_active: "Активний", promo_create: "Створити промокод",
-    promo_fixed: "Фіксований (zł)", promo_percent: "Відсоток (%)",
-    promo_one_per: "1 раз на клієнта", promo_generate: "Згенерувати",
-    level_classic: "Classic", level_gold: "Gold", level_platinum: "Platinum",
-    level_b2b: "B2B", spent_12m: "Оборот за 12м",
-    loyalty_config: "Налаштування лояльності", loyalty_clients: "Клієнти за рівнями",
-    recalc: "Перерахувати рівень", recalc_ok: "Рівень перераховано",
-    b2b_client: "B2B клієнт", b2b_discount: "Знижка B2B (%)",
-    referral_code_lbl: "Реф. код", referral_rewarded: "Реферал винагороджено",
-    gold_threshold: "Поріг Gold (zł)", platinum_threshold: "Поріг Platinum (zł)",
-    classic_discount: "Знижка Classic (%)", gold_discount: "Знижка Gold (%)",
-    platinum_discount: "Знижка Platinum (%)", shop_loyalty: "Лояльність (магазин)",
-    no_shop_user: "Не зареєстрований у магазині",
-    inactive_90: "Неактивні 90+ днів", min_discount_lbl: "Знижка гарантована до",
-    last_purchase_lbl: "Остання покупка", days_inactive_lbl: "Днів без покупки",
-    guaranteed_until: "Гарантовано до",
-  }
-};
 
 // ============================================================
 // HELPERS
@@ -216,6 +36,17 @@ const STATUS_PILL = {
 const STATUS_KEYS = { new: "status_new", processing: "status_processing", shipped: "status_shipped", completed: "status_completed", cancelled: "status_cancelled" };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
 const fmtMoney = (n) => n ? `${Number(n).toFixed(2)} zł` : "—";
+// value — каноническое (русское) значение, хранимое в clients.source; labelKey —
+// переводимая подпись, показанная в выпадающем списке.
+const SOURCE_OPTIONS = [
+  { value: "инстаграм", labelKey: "src_instagram" },
+  { value: "телеграм", labelKey: "src_telegram" },
+  { value: "whatsapp", labelKey: "src_whatsapp" },
+  { value: "сайт", labelKey: "src_site" },
+  { value: "рекомендация", labelKey: "src_referral" },
+  { value: "реклама в авто", labelKey: "src_car_ad" },
+  { value: "другое", labelKey: "src_other" },
+];
 
 // ============================================================
 // STYLES
@@ -832,7 +663,7 @@ function CRMApp({ session }) {
     // clears localStorage, not just hiding the UI — getSession() will return
     // null right after this resolves.
     const { error } = await supabase.auth.signOut();
-    if (error) alert("Не удалось выйти: " + error.message);
+    if (error) alert(t.err_sign_out + error.message);
   }
 
   // Счётчик отзывов на модерации + Realtime
@@ -995,11 +826,11 @@ function CRMApp({ session }) {
       <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} newCrmOrders={newCrmOrders} paidShopOrders={paidShopOrders} currentUser={currentUser} />
       <div className="main">
         <div className="global-header">
-          <UserMenu currentUser={currentUser} onSignOut={signOut} soundEnabled={orderSound.enabled} onToggleSound={orderSound.setEnabled} />
+          <UserMenu t={t} currentUser={currentUser} onSignOut={signOut} soundEnabled={orderSound.enabled} onToggleSound={orderSound.setEnabled} />
         </div>
         {page === "dashboard" && canSeeModule(currentUser, "dashboard") && <Dashboard t={t} setPage={setPage} />}
         {page === "no_access" && (
-          <div className="content"><div className="card"><div className="empty-state">Нет доступных разделов. Обратитесь к владельцу CRM.</div></div></div>
+          <div className="content"><div className="card"><div className="empty-state">{t.no_access_msg}</div></div></div>
         )}
         {page === "clients" && <Clients t={t} onSelect={c => { setSelectedClient(c); setPage("client_detail"); }} />}
         {page === "client_detail" && <ClientDetail t={t} client={selectedClient} onBack={() => setPage("clients")} lang={lang} />}
@@ -1007,29 +838,29 @@ function CRMApp({ session }) {
         {page === "products" && <Products t={t} lang={lang} />}
         {page === "warranties" && <Warranties t={t} />}
         {page === "staff" && <Staff t={t} currentUser={currentUser} />}
-        {page === "shop_orders" && <ShopOrders openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
-        {page === "shop_products" && <ShopProducts />}
-        {page === "reviews" && <ShopReviews />}
-        {page === "discounts" && <ShopPromoCodes />}
+        {page === "shop_orders" && <ShopOrders lang={lang} openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
+        {page === "shop_products" && <ShopProducts lang={lang} />}
+        {page === "reviews" && <ShopReviews lang={lang} />}
+        {page === "discounts" && <ShopPromoCodes lang={lang} />}
         {page === "loyalty" && <LoyaltyAdmin t={t} />}
-        {page === "shop_customers" && <ShopCustomers onOpenOrder={openShopOrder} />}
-        {page === "shop_analytics" && <ShopAnalytics />}
-        {page === "warehouse_raw" && <WarehouseRaw />}
-        {page === "production" && <Production />}
-        {page === "warehouse_finished" && <WarehouseFinished />}
+        {page === "shop_customers" && <ShopCustomers lang={lang} onOpenOrder={openShopOrder} />}
+        {page === "shop_analytics" && <ShopAnalytics lang={lang} />}
+        {page === "warehouse_raw" && <WarehouseRaw lang={lang} />}
+        {page === "production" && <Production lang={lang} />}
+        {page === "warehouse_finished" && <WarehouseFinished lang={lang} />}
       </div>
       {orderToasts.length > 0 && (
         <div className="order-toast-stack">
           {orderToasts.map(ot => (
             <div key={ot.id} className="order-toast">
               <button className="order-toast-close" onClick={() => dismissToast(ot.id)}>×</button>
-              <div className="order-toast-title">🛒 Новый заказ №{ot.orderNumber}</div>
+              <div className="order-toast-title">🛒 {t.new_order} №{ot.orderNumber}</div>
               <div className="order-toast-body">{ot.itemsText}, {fmtMoney(ot.total)}</div>
               <button
                 className="order-toast-action"
                 onClick={() => { setOpenShopOrderId(ot.orderId); setPage("shop_orders"); dismissToast(ot.id); }}
               >
-                Открыть
+                {t.open_order_action}
               </button>
             </div>
           ))}
@@ -1103,18 +934,18 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
     { key: "staff", label: t.staff },
   ].filter(item => canSee(item.key));
   const shopItems = [
-    { key: "shop_orders", label: "Заказы магазина", badge: paidShopOrders },
-    { key: "shop_products", label: "Товары магазина" },
+    { key: "shop_orders", label: t.nav_shop_orders, badge: paidShopOrders },
+    { key: "shop_products", label: t.nav_shop_products },
     { key: "reviews", label: t.reviews, badge: pendingReviews },
-    { key: "discounts", label: "Промокоды" },
+    { key: "discounts", label: t.nav_promo_codes },
     { key: "loyalty", label: t.loyalty },
-    { key: "shop_customers", label: "Покупатели" },
-    { key: "shop_analytics", label: "Аналитика магазина" },
+    { key: "shop_customers", label: t.nav_shop_customers },
+    { key: "shop_analytics", label: t.nav_shop_analytics },
   ].filter(item => canSee(item.key));
   const warehouseItems = [
-    { key: "warehouse_raw", label: "Склад: Сырьё" },
-    { key: "production", label: "Производство" },
-    { key: "warehouse_finished", label: "Готовая продукция" },
+    { key: "warehouse_raw", label: t.nav_warehouse_raw },
+    { key: "production", label: t.nav_production },
+    { key: "warehouse_finished", label: t.nav_warehouse_finished },
   ].filter(item => canSee(item.key));
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -1142,20 +973,20 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
       <span>{item.label}</span>
       {item.key === "warranties" && newWarranties > 0 && <span className="nav-badge">{newWarranties}</span>}
       {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
-      {item.soon && <span className="nav-soon">Скоро</span>}
+      {item.soon && <span className="nav-soon">{t.soon_label}</span>}
     </div>
   );
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
         <h1>Coffee Verve CRM</h1>
-        <p>система управления</p>
+        <p>{t.crm_tagline}</p>
       </div>
       <nav className="sidebar-nav">
         {coreItems.map(renderItem)}
-        <div className="nav-section-label">Склад</div>
+        <div className="nav-section-label">{t.nav_section_warehouse}</div>
         {warehouseItems.map(renderItem)}
-        <div className="nav-section-label">Магазин</div>
+        <div className="nav-section-label">{t.nav_section_shop}</div>
         {shopItems.map(renderItem)}
       </nav>
       <div className="sidebar-bottom">
@@ -1171,13 +1002,13 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
   );
 }
 
-function UserMenu({ currentUser, onSignOut, soundEnabled, onToggleSound }) {
+function UserMenu({ t, currentUser, onSignOut, soundEnabled, onToggleSound }) {
   const [open, setOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
 
   if (!currentUser) return null;
   const initial = (currentUser.name || currentUser.email || "?").charAt(0).toUpperCase();
-  const roleLabel = currentUser.role === "owner" ? "Владелец" : "Сотрудник";
+  const roleLabel = currentUser.role === "owner" ? t.owner : t.employee;
 
   return (
     <div style={{ position: "relative" }}>
@@ -1196,27 +1027,27 @@ function UserMenu({ currentUser, onSignOut, soundEnabled, onToggleSound }) {
             <div className="channel-item sound-toggle-item" onClick={() => onToggleSound(v => !v)}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                Звук новых заказов
+                {t.sound_toggle_label}
               </span>
               <span className={`sound-toggle-switch ${soundEnabled ? "on" : ""}`} />
             </div>
             <div className="channel-item" onClick={() => { setShowChangePw(true); setOpen(false); }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
-              Сменить пароль
+              {t.change_password}
             </div>
             <div className="channel-item" onClick={() => { setOpen(false); onSignOut(); }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Выйти
+              {t.sign_out}
             </div>
           </div>
         </>
       )}
-      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+      {showChangePw && <ChangePasswordModal t={t} onClose={() => setShowChangePw(false)} />}
     </div>
   );
 }
 
-function ChangePasswordModal({ onClose }) {
+function ChangePasswordModal({ t, onClose }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1225,8 +1056,8 @@ function ChangePasswordModal({ onClose }) {
 
   async function handleSave() {
     setError("");
-    if (password.length < 6) { setError("Пароль должен быть не короче 6 символов"); return; }
-    if (password !== confirm) { setError("Пароли не совпадают"); return; }
+    if (password.length < 6) { setError(t.password_too_short); return; }
+    if (password !== confirm) { setError(t.passwords_mismatch); return; }
     setSaving(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSaving(false);
@@ -1238,23 +1069,23 @@ function ChangePasswordModal({ onClose }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 360 }}>
-        <div className="modal-title">Сменить пароль</div>
+        <div className="modal-title">{t.change_password}</div>
         {done ? (
-          <div style={{ color: "#16A34A", fontSize: 13 }}>Пароль обновлён</div>
+          <div style={{ color: "#16A34A", fontSize: 13 }}>{t.password_updated}</div>
         ) : (
           <>
             <div className="form-group">
-              <label className="form-label">Новый пароль</label>
+              <label className="form-label">{t.new_password}</label>
               <input className="input" type="password" autoFocus value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label">Повторите пароль</label>
+              <label className="form-label">{t.repeat_password}</label>
               <input className="input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
             </div>
             {error && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>{error}</div>}
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-              <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : "Сохранить"}</button>
+              <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+              <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : t.save}</button>
             </div>
           </>
         )}
@@ -1416,7 +1247,7 @@ function Dashboard({ t, setPage }) {
               {t.total_revenue}
             </div>
             <div className="big-value">{fmtMoney(stats.revenue)}</div>
-            <div className="big-sub">+{stats.orders} {t.total_orders.toLowerCase()} · ср. чек {fmtMoney(stats.avg)}</div>
+            <div className="big-sub">+{stats.orders} {t.total_orders.toLowerCase()} · {t.avg_check_short} {fmtMoney(stats.avg)}</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
@@ -1436,7 +1267,7 @@ function Dashboard({ t, setPage }) {
               const maxRev2 = Math.max(...monthlyRevenue.map(m => m.rev), 1);
               return monthlyRevenue.map((m, i) => (
                 <div key={i} className="bar-month">
-                  <div className={`bar-month-fill${m.rev > 0 ? " active" : ""}`} style={{ height: `${Math.max((m.rev / maxRev2) * 64, m.rev > 0 ? 8 : 4)}px` }} title={m.rev > 0 ? `${m.rev.toFixed(0)} zł · ${m.cnt} зак.` : ""} />
+                  <div className={`bar-month-fill${m.rev > 0 ? " active" : ""}`} style={{ height: `${Math.max((m.rev / maxRev2) * 64, m.rev > 0 ? 8 : 4)}px` }} title={m.rev > 0 ? `${m.rev.toFixed(0)} zł · ${m.cnt} ${t.orders_abbr}` : ""} />
                   <div className="bar-month-label">{t.months[i]}</div>
                 </div>
               ));
@@ -1566,24 +1397,24 @@ function Dashboard({ t, setPage }) {
         {/* Аналитика — цикл покупки и популярный вес */}
         <div className="grid-2">
           <div className="card">
-            <div className="card-title">📊 Средний цикл покупки</div>
+            <div className="card-title">📊 {t.avg_purchase_cycle}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
               <div style={{ textAlign: "center", flex: 1, background: "#F0FDF4", borderRadius: 8, padding: "14px 10px" }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color: "#16A34A" }}>{avgCycle || "—"}</div>
-                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>дней между заказами</div>
+                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>{t.days_between_orders}</div>
               </div>
               <div style={{ flex: 2, fontSize: 13, color: "#4B5563", lineHeight: 1.6 }}>
                 {avgCycle > 0 ? (
                   <>
-                    <div>Клиенты возвращают в среднем через <strong style={{ color: "#16A34A" }}>{avgCycle} дн.</strong></div>
+                    <div>{t.clients_return_avg} <strong style={{ color: "#16A34A" }}>{avgCycle} {t.days_abbr}</strong></div>
                     <div style={{ marginTop: 6, fontSize: 12, color: "#9CA3AF" }}>
-                      {avgCycle <= 14 ? "🔥 Высокая лояльность" : avgCycle <= 30 ? "✅ Хорошая частота" : "⚠️ Стоит напомнить о себе"}
+                      {avgCycle <= 14 ? t.loyalty_high : avgCycle <= 30 ? t.loyalty_good_freq : t.loyalty_remind}
                     </div>
                   </>
-                ) : <div style={{ color: "#9CA3AF" }}>Нужно минимум 2 заказа от одного клиента</div>}
+                ) : <div style={{ color: "#9CA3AF" }}>{t.need_min_2_orders}</div>}
               </div>
             </div>
-            <div className="card-title" style={{ marginTop: 8 }}>🏆 Топ клиентов</div>
+            <div className="card-title" style={{ marginTop: 8 }}>🏆 {t.top_clients}</div>
             {topClients.length === 0 ? <div className="empty-state" style={{ padding: 16 }}>{t.no_data}</div> : (
               <div className="bar-chart">
                 {topClients.map(([name, d]) => (
@@ -1598,12 +1429,12 @@ function Dashboard({ t, setPage }) {
           </div>
 
           <div className="card">
-            <div className="card-title">⚖️ Популярный вес упаковки</div>
+            <div className="card-title">⚖️ {t.popular_weight}</div>
             <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
               {[250, 500, 1000].map(w => (
                 <div key={w} style={{ flex: 1, textAlign: "center", background: popularWeight[w] === Math.max(...Object.values(popularWeight)) && popularWeight[w] > 0 ? "#F0FDF4" : "#F9FAFB", border: `1px solid ${popularWeight[w] === Math.max(...Object.values(popularWeight)) && popularWeight[w] > 0 ? "#86EFAC" : "#E5E7EB"}`, borderRadius: 8, padding: "12px 8px" }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#1F2937" }}>{popularWeight[w] || 0}</div>
-                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>{w}г</div>
+                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>{w}{t.unit_g}</div>
                   <div style={{ marginTop: 6 }}>
                     <div style={{ height: 4, background: "#E5E7EB", borderRadius: 2 }}>
                       <div style={{ height: "100%", background: "#22C55E", borderRadius: 2, width: `${maxWeight > 0 ? (popularWeight[w] / maxWeight) * 100 : 0}%` }} />
@@ -1685,16 +1516,16 @@ function QuickOrderModal({ t, onClose, onDone }) {
           <>
             <div className="form-group">
               <label className="form-label">{t.client} *</label>
-              <input className="input" style={{ marginBottom: 6 }} placeholder="Поиск клиента..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
+              <input className="input" style={{ marginBottom: 6 }} placeholder={t.search_client_placeholder} value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
               <select className="input" value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}>
-                <option value="">— выберите клиента —</option>
+                <option value="">{t.select_client_placeholder}</option>
                 {filteredClients.map(c => <option key={c.id} value={c.id}>{c.name} ({c.client_code})</option>)}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">{t.product} *</label>
               <select className="input" value={form.product_id} onChange={e => setForm({ ...form, product_id: e.target.value })}>
-                <option value="">— выберите товар —</option>
+                <option value="">{t.select_product_placeholder}</option>
                 {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.country})</option>)}
               </select>
             </div>
@@ -1702,9 +1533,9 @@ function QuickOrderModal({ t, onClose, onDone }) {
               <div className="form-group">
                 <label className="form-label">{t.weight}</label>
                 <select className="input" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })}>
-                  <option value={250}>250г</option>
-                  <option value={500}>500г</option>
-                  <option value={1000}>1000г</option>
+                  <option value={250}>{`250${t.unit_g}`}</option>
+                  <option value={500}>{`500${t.unit_g}`}</option>
+                  <option value={1000}>{`1000${t.unit_g}`}</option>
                 </select>
               </div>
               <div className="form-group">
@@ -1770,7 +1601,7 @@ function Clients({ t, onSelect }) {
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ {t.new_client}</button>
       </div>
       <div className="content">
-        <input className="search-bar" placeholder="Поиск по имени, Telegram, телефону..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="search-bar" placeholder={t.search_clients_full_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
@@ -1815,7 +1646,7 @@ function Clients({ t, onSelect }) {
               <div className="form-group"><label className="form-label">{t.source}</label>
                 <select className="input" value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}>
                   <option value="">—</option>
-                  {["инстаграм","телеграм","whatsapp","сайт","рекомендация","реклама в авто","другое"].map(s => <option key={s} value={s}>{s}</option>)}
+                  {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t[o.labelKey]}</option>)}
                 </select>
               </div>
             </div>
@@ -1999,7 +1830,7 @@ function ClientDetail({ t, client, onBack, lang }) {
             {loading ? <div className="empty-state">{t.loading}</div> : orders.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 16px", gap: 10 }}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                <span style={{ fontSize: 13, color: "#9CA3AF" }}>Заказов пока нет</span>
+                <span style={{ fontSize: 13, color: "#9CA3AF" }}>{t.no_orders_yet}</span>
                 <button className="btn btn-primary btn-sm" onClick={() => setShowOrderModal(true)}>+ {t.new_order}</button>
               </div>
             ) : (
@@ -2010,7 +1841,7 @@ function ClientDetail({ t, client, onBack, lang }) {
                     <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
                       <td style={{ color: "#6B7280", fontSize: 12 }}>{orders.length - i}</td>
                       <td style={{ fontWeight: 500, color: "#1F2937" }}>{o.products?.name || "—"}</td>
-                      <td style={{ color: "#4B5563" }}>{o.weight}г</td>
+                      <td style={{ color: "#4B5563" }}>{o.weight}{t.unit_g}</td>
                       <td style={{ color: "#6B7280", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                       <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                       <td><span className="badge" style={{ background: STATUS_COLORS[o.status] }}>{t[STATUS_KEYS[o.status]]}</span></td>
@@ -2122,7 +1953,7 @@ function ClientDetail({ t, client, onBack, lang }) {
             <div className="form-row">
               <div className="form-group"><label className="form-label">{t.weight}</label>
                 <select className="input" value={orderForm.weight} onChange={e => setOrderForm({ ...orderForm, weight: Number(e.target.value) })}>
-                  <option value={250}>250г</option><option value={500}>500г</option><option value={1000}>1000г</option>
+                  <option value={250}>{`250${t.unit_g}`}</option><option value={500}>{`500${t.unit_g}`}</option><option value={1000}>{`1000${t.unit_g}`}</option>
                 </select>
               </div>
               <div className="form-group"><label className="form-label">{t.roast_date}</label>
@@ -2168,7 +1999,7 @@ function ClientDetail({ t, client, onBack, lang }) {
               <div className="form-group"><label className="form-label">{t.source}</label>
                 <select className="input" value={editForm.source || ""} onChange={e => setEditForm({ ...editForm, source: e.target.value })}>
                   <option value="">—</option>
-                  {["инстаграм","телеграм","whatsapp","сайт","рекомендация","реклама в авто","другое"].map(s => <option key={s} value={s}>{s}</option>)}
+                  {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t[o.labelKey]}</option>)}
                 </select>
               </div>
             </div>
@@ -2224,7 +2055,7 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
           <div style={{ flex: 1 }}>
             {[
               [t.product, order.products?.name],
-              [t.weight, `${order.weight}г`],
+              [t.weight, `${order.weight}${t.unit_g}`],
               [t.roast_date, fmtDate(order.roast_date)],
               [t.total, fmtMoney(order.total)],
               [t.date, fmtDate(order.created_at)],
@@ -2246,7 +2077,7 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
                 <div style={{ fontSize: 10, color: "#4B5563", margin: "8px 0", fontFamily: "monospace" }}>{order.qr_token}</div>
                 <button className="btn btn-secondary btn-sm" onClick={downloadQR}>{t.print_qr}</button>
               </>
-            ) : <div style={{ color: "#4B5563", fontSize: 12 }}>Генерация QR...</div>}
+            ) : <div style={{ color: "#4B5563", fontSize: 12 }}>{t.generating_qr}</div>}
           </div>
         </div>
         <div className="modal-actions">
@@ -2327,7 +2158,7 @@ function Orders({ t, lang }) {
         <div className="topbar-actions">
           {["all", "new", "processing", "shipped", "completed", "cancelled"].map(s => (
             <button key={s} className={`btn btn-sm ${filter === s ? "btn-primary" : "btn-secondary"}`} onClick={() => setFilter(s)}>
-              {s === "all" ? "Все" : t[STATUS_KEYS[s]]}
+              {s === "all" ? t.review_all : t[STATUS_KEYS[s]]}
             </button>
           ))}
           <button className="btn btn-primary btn-sm" onClick={() => setShowNewOrder(true)}>+ {t.new_order}</button>
@@ -2346,12 +2177,12 @@ function Orders({ t, lang }) {
                     <td style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
                       <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
                         {o.clients?.name || "—"}
-                        {o.shop_order_id && <span title="Заказ с сайта">🛒</span>}
+                        {o.shop_order_id && <span title={t.order_from_site_title}>🛒</span>}
                       </div>
                       <div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div>
                     </td>
                     <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
-                    <td style={{ color: "#6B7280" }}>{o.weight}г</td>
+                    <td style={{ color: "#6B7280" }}>{o.weight}{t.unit_g}</td>
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                     <td>
                       <select
@@ -2392,7 +2223,7 @@ function Products({ t, lang }) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
-  const emptyProduct = { code: "", name: "", country: "", flavor_notes: "", purpose: "Эспрессо, молочные напитки", price_250: "", price_500: "", price_1000: "", status: "active" };
+  const emptyProduct = { code: "", name: "", country: "", flavor_notes: "", purpose: t.default_purpose, price_250: "", price_500: "", price_1000: "", status: "active" };
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -2422,12 +2253,12 @@ function Products({ t, lang }) {
   }
 
   async function deleteProduct(id) {
-    if (!window.confirm("Удалить товар?")) return;
+    if (!window.confirm(t.confirm_delete_product)) return;
     await supabase.from("products").delete().eq("id", id);
     fetchProducts();
   }
 
-  const statusLabels = { active: "✅ Есть", inactive: "❌ Нет", on_order: "⏳ Под заказ" };
+  const statusLabels = { active: `✅ ${t.prod_status_active}`, inactive: `❌ ${t.prod_status_inactive}`, on_order: `⏳ ${t.prod_status_on_order}` };
   const isNew = editing && !editing.id;
 
   return (
@@ -2437,7 +2268,7 @@ function Products({ t, lang }) {
         <button className="btn btn-primary" onClick={() => setEditing({ ...emptyProduct })}>+ {t.add}</button>
       </div>
       <div className="content">
-        <input className="search-bar" placeholder="Поиск по названию, стране, вкусу..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="search-bar" placeholder={t.search_products_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
@@ -2452,7 +2283,7 @@ function Products({ t, lang }) {
                     <td style={{ color: "#16A34A" }}>{p.price_500 ? `${p.price_500} zł` : "—"}</td>
                     <td style={{ color: "#16A34A" }}>{p.price_1000 ? `${p.price_1000} zł` : "—"}</td>
                     <td style={{ textAlign: "center" }}>
-                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: p.status === "active" ? "#22C55E" : p.status === "on_order" ? "#F59E0B" : "#F44336" }} title={p.status === "active" ? "В наличии" : p.status === "on_order" ? "Под заказ" : "Нет"} />
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: p.status === "active" ? "#22C55E" : p.status === "on_order" ? "#F59E0B" : "#F44336" }} title={p.status === "active" ? t.title_in_stock : p.status === "on_order" ? t.title_on_order : t.title_out} />
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <button className="action-icon-btn" title={t.edit} onClick={() => setEditing({ ...p })}>
@@ -2477,14 +2308,14 @@ function Products({ t, lang }) {
             {isNew && (
               <>
                 <div className="form-row">
-                  <div className="form-group"><label className="form-label">Код товара *</label><input className="input" placeholder="CV-013" value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">{t.product_code_label} *</label><input className="input" placeholder="CV-013" value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" placeholder="Kenya AA" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
                 </div>
                 <div className="form-row">
-                  <div className="form-group"><label className="form-label">{t.country}</label><input className="input" placeholder="Кения" value={editing.country} onChange={e => setEditing({ ...editing, country: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">{t.country}</label><input className="input" placeholder={t.example_country} value={editing.country} onChange={e => setEditing({ ...editing, country: e.target.value })} /></div>
                   <div className="form-group"><label className="form-label">{t.purpose}</label><input className="input" value={editing.purpose} onChange={e => setEditing({ ...editing, purpose: e.target.value })} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">{t.flavor_notes}</label><input className="input" placeholder="Смородина • Лимон • Чай" value={editing.flavor_notes} onChange={e => setEditing({ ...editing, flavor_notes: e.target.value })} /></div>
+                <div className="form-group"><label className="form-label">{t.flavor_notes}</label><input className="input" placeholder={t.example_flavor_notes} value={editing.flavor_notes} onChange={e => setEditing({ ...editing, flavor_notes: e.target.value })} /></div>
               </>
             )}
             <div className="form-row">
@@ -2495,7 +2326,7 @@ function Products({ t, lang }) {
               <div className="form-group"><label className="form-label">{t.price_1000}</label><input type="number" className="input" value={editing.price_1000 || ""} onChange={e => setEditing({ ...editing, price_1000: e.target.value })} /></div>
               <div className="form-group"><label className="form-label">{t.available}</label>
                 <select className="input" value={editing.status} onChange={e => setEditing({ ...editing, status: e.target.value })}>
-                  <option value="active">✅ Есть</option><option value="inactive">❌ Нет</option><option value="on_order">⏳ Под заказ</option>
+                  <option value="active">✅ {t.prod_status_active}</option><option value="inactive">❌ {t.prod_status_inactive}</option><option value="on_order">⏳ {t.prod_status_on_order}</option>
                 </select>
               </div>
             </div>
@@ -2554,7 +2385,7 @@ function Warranties({ t }) {
         ) : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
-              <thead><tr><th>{t.client}</th><th>{t.product}</th><th>{t.warranty_reason}</th><th>{t.status}</th><th>Решение</th><th>{t.date}</th></tr></thead>
+              <thead><tr><th>{t.client}</th><th>{t.product}</th><th>{t.warranty_reason}</th><th>{t.status}</th><th>{t.resolution_col}</th><th>{t.date}</th></tr></thead>
               <tbody>
                 {warranties.map(w => (
                   <tr key={w.id}>
@@ -2586,23 +2417,25 @@ function Warranties({ t }) {
 // ============================================================
 // STAFF
 // ============================================================
-const STAFF_MODULES = [
-  { key: "dashboard", label: "Дашборд" },
-  { key: "clients", label: "Клиенты" },
-  { key: "orders", label: "Заказы" },
-  { key: "products", label: "Товары" },
-  { key: "warranties", label: "Гарантии" },
-  { key: "shop_orders", label: "Заказы магазина" },
-  { key: "shop_products", label: "Товары магазина" },
-  { key: "reviews", label: "Отзывы" },
-  { key: "discounts", label: "Промокоды" },
-  { key: "loyalty", label: "Лояльность" },
-  { key: "shop_customers", label: "Покупатели" },
-  { key: "shop_analytics", label: "Аналитика магазина" },
-  { key: "warehouse_raw", label: "Склад: Сырьё" },
-  { key: "production", label: "Производство" },
-  { key: "warehouse_finished", label: "Готовая продукция" },
-];
+function getStaffModules(t) {
+  return [
+    { key: "dashboard", label: t.dashboard },
+    { key: "clients", label: t.clients },
+    { key: "orders", label: t.orders },
+    { key: "products", label: t.products },
+    { key: "warranties", label: t.warranties },
+    { key: "shop_orders", label: t.nav_shop_orders },
+    { key: "shop_products", label: t.nav_shop_products },
+    { key: "reviews", label: t.reviews },
+    { key: "discounts", label: t.nav_promo_codes },
+    { key: "loyalty", label: t.loyalty },
+    { key: "shop_customers", label: t.nav_shop_customers },
+    { key: "shop_analytics", label: t.nav_shop_analytics },
+    { key: "warehouse_raw", label: t.nav_warehouse_raw },
+    { key: "production", label: t.nav_production },
+    { key: "warehouse_finished", label: t.nav_warehouse_finished },
+  ];
+}
 
 async function callStaffAdmin(action, payload) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -2636,10 +2469,10 @@ function Staff({ t, currentUser }) {
   const fetchStaff = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.from("users").select("*").order("created_at");
-    if (error) showToast("Ошибка загрузки: " + error.message);
+    if (error) showToast(t.err_load + error.message);
     setStaff(data || []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
@@ -2665,30 +2498,32 @@ function Staff({ t, currentUser }) {
   }
 
   async function deleteStaff(id) {
-    if (!window.confirm("Удалить сотрудника? Он потеряет доступ к CRM.")) return;
+    if (!window.confirm(t.confirm_delete_staff)) return;
     const result = await callStaffAdmin("delete", { id });
-    if (result.error) { showToast("Не удалось удалить: " + result.error); return; }
+    if (result.error) { showToast(t.err_delete_staff + result.error); return; }
     fetchStaff();
   }
 
   async function savePermissions(id, modules) {
     const { error } = await supabase.from("users").update({ permissions: { modules } }).eq("id", id);
-    if (error) { showToast("Не удалось сохранить права: " + error.message); return; }
+    if (error) { showToast(t.err_save_perms + error.message); return; }
     setEditingPerms(null);
     fetchStaff();
   }
+
+  const staffModules = getStaffModules(t);
 
   return (
     <div>
       <div className="topbar">
         <span className="topbar-title">{t.staff}</span>
-        <button className="btn btn-primary" onClick={() => setShowInvite(true)}>+ Пригласить</button>
+        <button className="btn btn-primary" onClick={() => setShowInvite(true)}>{t.invite_btn}</button>
       </div>
       <div className="content">
         {loading ? <div className="empty-state">{t.loading}</div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="table">
-              <thead><tr><th>{t.name}</th><th>{t.email}</th><th>{t.role}</th><th>Доступ</th><th>{t.date}</th><th></th></tr></thead>
+              <thead><tr><th>{t.name}</th><th>{t.email}</th><th>{t.role}</th><th>{t.access_col}</th><th>{t.date}</th><th></th></tr></thead>
               <tbody>
                 {staff.length === 0 ? <tr><td colSpan={6} className="empty-state">{t.no_data}</td></tr> : staff.map(s => (
                   <tr key={s.id}>
@@ -2696,9 +2531,9 @@ function Staff({ t, currentUser }) {
                     <td style={{ color: "#6B7280" }}>{s.email}</td>
                     <td><span className="badge" style={{ background: s.role === "owner" ? "#DCFCE7" : "#F3F4F6", color: s.role === "owner" ? "#16A34A" : "#6B7280" }}>{s.role === "owner" ? t.owner : t.employee}</span></td>
                     <td style={{ fontSize: 12, color: "#6B7280" }}>
-                      {s.role === "owner" ? "Все разделы" : (s.permissions?.modules?.length ? s.permissions.modules.length + " раздела(ов)" : "Нет доступа")}
+                      {s.role === "owner" ? t.all_sections : (s.permissions?.modules?.length ? s.permissions.modules.length + " " + t.sections_suffix : t.no_access_perm)}
                       {s.role !== "owner" && (
-                        <button className="action-icon-btn" title="Изменить права" onClick={() => setEditingPerms(s)} style={{ marginLeft: 6 }}>
+                        <button className="action-icon-btn" title={t.change_perms_title} onClick={() => setEditingPerms(s)} style={{ marginLeft: 6 }}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                       )}
@@ -2720,13 +2555,13 @@ function Staff({ t, currentUser }) {
       {showInvite && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowInvite(false)}>
           <div className="modal">
-            <div className="modal-title">Пригласить сотрудника</div>
+            <div className="modal-title">{t.invite_staff_title}</div>
             <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} /></div>
             <div className="form-group"><label className="form-label">{t.email} *</label><input className="input" type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} /></div>
             <div className="form-group">
-              <label className="form-label">Доступные разделы</label>
+              <label className="form-label">{t.available_sections}</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                {STAFF_MODULES.map(m => (
+                {staffModules.map(m => (
                   <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
                     <input type="checkbox" checked={inviteForm.modules.includes(m.key)} onChange={() => toggleInviteModule(m.key)} />
                     {m.label}
@@ -2737,7 +2572,7 @@ function Staff({ t, currentUser }) {
             {inviteError && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>{inviteError}</div>}
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowInvite(false)}>{t.cancel}</button>
-              <button className="btn btn-primary" disabled={inviting} onClick={sendInvite}>{inviting ? "…" : "Отправить приглашение"}</button>
+              <button className="btn btn-primary" disabled={inviting} onClick={sendInvite}>{inviting ? "…" : t.send_invite_btn}</button>
             </div>
           </div>
         </div>
@@ -2745,6 +2580,7 @@ function Staff({ t, currentUser }) {
 
       {editingPerms && (
         <PermissionsModal
+          t={t}
           staffMember={editingPerms}
           onClose={() => setEditingPerms(null)}
           onSave={savePermissions}
@@ -2755,9 +2591,10 @@ function Staff({ t, currentUser }) {
   );
 }
 
-function PermissionsModal({ staffMember, onClose, onSave }) {
+function PermissionsModal({ t, staffMember, onClose, onSave }) {
   const [modules, setModules] = useState(staffMember.permissions?.modules || []);
   const [saving, setSaving] = useState(false);
+  const staffModules = getStaffModules(t);
 
   function toggle(key) {
     setModules(m => m.includes(key) ? m.filter(x => x !== key) : [...m, key]);
@@ -2772,9 +2609,9 @@ function PermissionsModal({ staffMember, onClose, onSave }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">Права доступа — {staffMember.name}</div>
+        <div className="modal-title">{t.perms_title_prefix}{staffMember.name}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 16 }}>
-          {STAFF_MODULES.map(m => (
+          {staffModules.map(m => (
             <label key={m.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
               <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggle(m.key)} />
               {m.label}
@@ -2782,8 +2619,8 @@ function PermissionsModal({ staffMember, onClose, onSave }) {
           ))}
         </div>
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-          <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : "Сохранить"}</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button className="btn btn-primary" disabled={saving} onClick={handleSave}>{saving ? "…" : t.save}</button>
         </div>
       </div>
     </div>
@@ -2834,7 +2671,7 @@ function LoyaltyAdmin({ t }) {
     );
     await Promise.all(updates);
     setSavingCfg(false);
-    setCfgMsg("✓ Сохранено");
+    setCfgMsg(t.saved_toast);
     setTimeout(() => setCfgMsg(""), 3000);
   }
 

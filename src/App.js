@@ -36,6 +36,10 @@ const STATUS_PILL = {
 const STATUS_KEYS = { new: "status_new", processing: "status_processing", shipped: "status_shipped", completed: "status_completed", cancelled: "status_cancelled" };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU") : "—";
 const fmtMoney = (n) => n ? `${Number(n).toFixed(2)} zł` : "—";
+// Единое поле "Telegram" в карточке клиента хранится в clients.username (без
+// ведущего @) — это то же поле, что читает список/просмотр и куда пишет сайт
+// через create_crm_orders_for_shop_order (customer_telegram → username).
+const normalizeTelegramUsername = (v) => (v || "").trim().replace(/^@+/, "");
 // value — каноническое (русское) значение, хранимое в clients.source; labelKey —
 // переводимая подпись, показанная в выпадающем списке.
 const SOURCE_OPTIONS = [
@@ -83,10 +87,10 @@ const styles = `
   .sound-toggle-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
   .sound-toggle-switch.on::after { transform: translateX(13px); }
   .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
-  .sidebar-bottom { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
-  .lang-switcher { display: flex; gap: 5px; }
-  .lang-btn { padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: rgba(255,255,255,0.6); font-size: 10px; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
-  .lang-btn.active { background: #22C55E; color: #fff; border-color: #22C55E; font-weight: 600; }
+  .header-lang-switcher { display: flex; gap: 4px; margin-right: 14px; }
+  .header-lang-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #E5E7EB; background: #fff; color: #6B7280; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
+  .header-lang-btn:hover { background: #F3F4F6; }
+  .header-lang-btn.active { background: #2B58A1; color: #fff; border-color: #2B58A1; }
   .main { margin-left: 220px; min-height: 100vh; padding: 0; background: #F4F5F7; }
   .global-header { padding: 8px 28px; border-bottom: 1px solid #E0E4EA; display: flex; align-items: center; justify-content: flex-end; background: #fff; position: sticky; top: 0; z-index: 60; }
   .user-menu-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 8px; font-family: 'Inter', sans-serif; }
@@ -823,9 +827,10 @@ function CRMApp({ session }) {
 
   return (
     <div className="crm-root">
-      <Sidebar t={t} lang={lang} setLang={setLang} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} newCrmOrders={newCrmOrders} paidShopOrders={paidShopOrders} currentUser={currentUser} />
+      <Sidebar t={t} page={page} setPage={setPage} newWarranties={newWarranties} pendingReviews={pendingReviews} newCrmOrders={newCrmOrders} paidShopOrders={paidShopOrders} currentUser={currentUser} />
       <div className="main">
         <div className="global-header">
+          <HeaderLangSwitcher lang={lang} setLang={setLang} />
           <UserMenu t={t} currentUser={currentUser} onSignOut={signOut} soundEnabled={orderSound.enabled} onToggleSound={orderSound.setEnabled} />
         </div>
         {page === "dashboard" && canSeeModule(currentUser, "dashboard") && <Dashboard t={t} setPage={setPage} />}
@@ -920,7 +925,7 @@ function AuthGate() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReviews, newCrmOrders, paidShopOrders, currentUser }) {
+function Sidebar({ t, page, setPage, newWarranties, pendingReviews, newCrmOrders, paidShopOrders, currentUser }) {
   function canSee(key) {
     return canSeeModule(currentUser, key);
   }
@@ -989,15 +994,18 @@ function Sidebar({ t, lang, setLang, page, setPage, newWarranties, pendingReview
         <div className="nav-section-label">{t.nav_section_shop}</div>
         {shopItems.map(renderItem)}
       </nav>
-      <div className="sidebar-bottom">
-        <div className="lang-switcher">
-          {["ru","pl","ua"].map(l => (
-            <button key={l} className={`lang-btn ${lang === l ? "active" : ""}`} onClick={() => setLang(l)}>
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
+    </div>
+  );
+}
+
+function HeaderLangSwitcher({ lang, setLang }) {
+  return (
+    <div className="header-lang-switcher">
+      {["ru", "pl", "ua"].map(l => (
+        <button key={l} className={`header-lang-btn ${lang === l ? "active" : ""}`} onClick={() => setLang(l)}>
+          {l.toUpperCase()}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1588,7 +1596,7 @@ function Clients({ t, onSelect }) {
 
   async function saveClient() {
     if (!form.name) return;
-    await supabase.from("clients").insert([form]);
+    await supabase.from("clients").insert([{ ...form, username: normalizeTelegramUsername(form.username) || null }]);
     setShowModal(false);
     setForm({ name: "", telegram_id: "", username: "", language: "RU", source: "", city: "", email: "", phone: "", notes: "" });
     fetchClients();
@@ -1634,26 +1642,23 @@ function Clients({ t, onSelect }) {
               <div className="form-group"><label className="form-label">{t.phone}</label><input className="input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">Telegram ID</label><input className="input" value={form.telegram_id} onChange={e => setForm({ ...form, telegram_id: e.target.value })} /></div>
-              <div className="form-group"><label className="form-label">{t.username}</label><input className="input" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
-            </div>
-            <div className="form-row">
+              <div className="form-group"><label className="form-label">Telegram</label><input className="input" placeholder="username" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} onBlur={e => setForm(f => ({ ...f, username: normalizeTelegramUsername(e.target.value) }))} /></div>
               <div className="form-group"><label className="form-label">{t.language}</label>
                 <select className="input" value={form.language} onChange={e => setForm({ ...form, language: e.target.value })}>
                   <option value="RU">RU</option><option value="PL">PL</option><option value="UA">UA</option>
                 </select>
               </div>
+            </div>
+            <div className="form-row">
               <div className="form-group"><label className="form-label">{t.source}</label>
                 <select className="input" value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}>
                   <option value="">—</option>
                   {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t[o.labelKey]}</option>)}
                 </select>
               </div>
-            </div>
-            <div className="form-row">
               <div className="form-group"><label className="form-label">{t.city}</label><input className="input" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} /></div>
-              <div className="form-group"><label className="form-label">{t.email}</label><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             </div>
+            <div className="form-group"><label className="form-label">{t.email}</label><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             <div className="form-group"><label className="form-label">{t.notes}</label><textarea className="input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t.cancel}</button>
@@ -1722,7 +1727,8 @@ function ClientDetail({ t, client, onBack, lang }) {
 
   async function saveClientEdit() {
     if (!editForm) return;
-    const { id, created_at, created_by, client_code, ...data } = editForm;
+    const { id, created_at, created_by, client_code, ...rest } = editForm;
+    const data = { ...rest, username: normalizeTelegramUsername(rest.username) || null };
     await supabase.from("clients").update(data).eq("id", client.id);
     setCurrentClient({ ...currentClient, ...data });
     setShowEditModal(false);
@@ -1987,26 +1993,23 @@ function ClientDetail({ t, client, onBack, lang }) {
               <div className="form-group"><label className="form-label">{t.phone}</label><input className="input" value={editForm.phone || ""} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">Telegram ID</label><input className="input" value={editForm.telegram_id || ""} onChange={e => setEditForm({ ...editForm, telegram_id: e.target.value })} /></div>
-              <div className="form-group"><label className="form-label">{t.username}</label><input className="input" value={editForm.username || ""} onChange={e => setEditForm({ ...editForm, username: e.target.value })} /></div>
-            </div>
-            <div className="form-row">
+              <div className="form-group"><label className="form-label">Telegram</label><input className="input" placeholder="username" value={editForm.username || ""} onChange={e => setEditForm({ ...editForm, username: e.target.value })} onBlur={e => setEditForm(f => ({ ...f, username: normalizeTelegramUsername(e.target.value) }))} /></div>
               <div className="form-group"><label className="form-label">{t.language}</label>
                 <select className="input" value={editForm.language || "RU"} onChange={e => setEditForm({ ...editForm, language: e.target.value })}>
                   <option value="RU">RU</option><option value="PL">PL</option><option value="UA">UA</option>
                 </select>
               </div>
+            </div>
+            <div className="form-row">
               <div className="form-group"><label className="form-label">{t.source}</label>
                 <select className="input" value={editForm.source || ""} onChange={e => setEditForm({ ...editForm, source: e.target.value })}>
                   <option value="">—</option>
                   {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t[o.labelKey]}</option>)}
                 </select>
               </div>
-            </div>
-            <div className="form-row">
               <div className="form-group"><label className="form-label">{t.city}</label><input className="input" value={editForm.city || ""} onChange={e => setEditForm({ ...editForm, city: e.target.value })} /></div>
-              <div className="form-group"><label className="form-label">{t.email}</label><input className="input" value={editForm.email || ""} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
             </div>
+            <div className="form-group"><label className="form-label">{t.email}</label><input className="input" value={editForm.email || ""} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
             <div className="form-group"><label className="form-label">{t.notes}</label><textarea className="input" rows={2} value={editForm.notes || ""} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} /></div>
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>{t.cancel}</button>

@@ -20,6 +20,16 @@ function suggestBoxSize(totalKg) {
   return "L";
 }
 
+// Сайт пишет telegram-юзернейм в shop_orders.customer_telegram (гостевой
+// заказ) или в shop_users.telegram (зарегистрированный покупатель) — берём
+// первое непустое значение и нормализуем (убираем ведущий @, пробелы).
+function telegramUsername(order) {
+  const raw = order.customer_telegram || order.shop_users?.telegram;
+  if (!raw) return null;
+  const clean = raw.trim().replace(/^@+/, "");
+  return clean || null;
+}
+
 function getStatusLabels(t) {
   return {
     new: t.shop_status_new, confirmed: t.shop_status_confirmed, processing: t.shop_status_processing,
@@ -101,7 +111,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("shop_orders")
-      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total)")
+      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total), shop_users(telegram)")
       .order("created_at", { ascending: false });
     if (error) showToast(t.prod_err_load_orders + error.message);
     setOrders(data || []);
@@ -220,6 +230,8 @@ function ContactModal({ t, order, onClose }) {
   const text = buildMessageText(order);
   const hasWhatsapp = !!order.customer_phone;
   const waPhone = hasWhatsapp ? order.customer_phone.replace(/[^\d]/g, "") : "";
+  const tgUsername = telegramUsername(order);
+  const hasTelegram = !!tgUsername;
 
   function openEmail() {
     window.open(`mailto:${order.customer_email}?subject=${encodeURIComponent(t.so_email_subject + order.order_number)}&body=${encodeURIComponent(text)}`, "_blank");
@@ -227,6 +239,10 @@ function ContactModal({ t, order, onClose }) {
   }
   function openWhatsapp() {
     window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, "_blank");
+    onClose();
+  }
+  function openTelegram() {
+    window.open(`https://t.me/${tgUsername}`, "_blank");
     onClose();
   }
 
@@ -239,7 +255,9 @@ function ContactModal({ t, order, onClose }) {
           <div className={"channel-item" + (hasWhatsapp ? "" : " disabled")} style={{ border: "1px solid #E5E7EB", borderRadius: 8 }} onClick={hasWhatsapp ? openWhatsapp : undefined}>
             {t.so_whatsapp_channel} {!hasWhatsapp && t.so_no_phone}
           </div>
-          <div className="channel-item disabled" style={{ border: "1px solid #E5E7EB", borderRadius: 8 }}>{t.so_telegram_unavailable}</div>
+          <div className={"channel-item" + (hasTelegram ? "" : " disabled")} style={{ border: "1px solid #E5E7EB", borderRadius: 8 }} onClick={hasTelegram ? openTelegram : undefined}>
+            {t.so_telegram_channel} {hasTelegram ? `@${tgUsername}` : t.so_no_telegram}
+          </div>
         </div>
         <div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>{t.close}</button></div>
       </div>
@@ -398,7 +416,7 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
             <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: 12 }}>
               <span className="badge" style={{ background: "#F3F4F6", color: "#374151" }}>✉️ Email ✓</span>
               <span className="badge" style={{ background: order.customer_phone ? "#F3F4F6" : "#F9FAFB", color: order.customer_phone ? "#374151" : "#C0C5CC" }}>💬 WhatsApp {order.customer_phone ? "✓" : "—"}</span>
-              <span className="badge" style={{ background: "#F9FAFB", color: "#C0C5CC" }}>📱 Telegram —</span>
+              <span className="badge" style={{ background: telegramUsername(order) ? "#F3F4F6" : "#F9FAFB", color: telegramUsername(order) ? "#374151" : "#C0C5CC" }}>📱 Telegram {telegramUsername(order) ? "✓" : "—"}</span>
             </div>
             <button className="btn btn-primary btn-sm" onClick={() => onContact(order)}>{t.so_write_title}</button>
           </div>

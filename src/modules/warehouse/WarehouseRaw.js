@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { T } from "../../lib/i18n";
+import { SupplierFormModal } from "./Suppliers";
 
 function getCategoryLabels(t) {
   return {
@@ -358,13 +359,36 @@ function computePrices(line) {
 
 function ReceiptModal({ t, items, onClose, onDone, showToast }) {
   const [docNumber, setDocNumber] = useState("");
-  const [supplier, setSupplier] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [suppliersList, setSuppliersList] = useState([]);
+  const [showQuickSupplier, setShowQuickSupplier] = useState(false);
   const [docDate, setDocDate] = useState(new Date().toISOString().slice(0, 10));
   const [comment, setComment] = useState("");
   const [lines, setLines] = useState([emptyLine()]);
   const [saving, setSaving] = useState(false);
   const CATEGORY_LABELS = getCategoryLabels(t);
   const UNIT_LABELS = getUnitLabels(t);
+
+  useEffect(() => {
+    supabase.from("suppliers").select("id, name, country, vat_status").eq("is_active", true).order("name")
+      .then(({ data }) => setSuppliersList(data || []));
+  }, []);
+
+  const selectedSupplier = suppliersList.find(s => s.id === supplierId);
+
+  function handleSupplierChange(id) {
+    setSupplierId(id);
+    const s = suppliersList.find(x => x.id === id);
+    if (s?.vat_status === "vat_eu") {
+      setLines(prev => prev.map(l => ({ ...l, vatRate: 0 })));
+    }
+  }
+
+  function handleQuickSupplierSaved(newSupplier) {
+    setSuppliersList(prev => [...prev, newSupplier].sort((a, b) => a.name.localeCompare(b.name)));
+    handleSupplierChange(newSupplier.id);
+    setShowQuickSupplier(false);
+  }
 
   function updateLine(key, patch) {
     setLines(prev => prev.map(l => l.key === key ? { ...l, ...patch } : l));
@@ -383,7 +407,7 @@ function ReceiptModal({ t, items, onClose, onDone, showToast }) {
 
     const { data: receipt, error: receiptErr } = await supabase
       .from("warehouse_receipts")
-      .insert([{ doc_number: docNumber || null, supplier: supplier || null, doc_date: docDate, comment: comment || null }])
+      .insert([{ doc_number: docNumber || null, supplier: selectedSupplier?.name || null, supplier_id: supplierId || null, doc_date: docDate, comment: comment || null }])
       .select().single();
     if (receiptErr) { showToast(t.whr_err_create_doc + receiptErr.message); setSaving(false); return; }
 
@@ -430,6 +454,7 @@ function ReceiptModal({ t, items, onClose, onDone, showToast }) {
   }
 
   return (
+    <>
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 720 }}>
         <div className="modal-title">{t.whr_receipt_btn}</div>
@@ -440,7 +465,14 @@ function ReceiptModal({ t, items, onClose, onDone, showToast }) {
           </div>
           <div className="form-group">
             <label className="form-label">{t.whr_supplier_col}</label>
-            <input className="input" value={supplier} onChange={e => setSupplier(e.target.value)} />
+            <select className="input" value={supplierId} onChange={e => e.target.value === "__new__" ? setShowQuickSupplier(true) : handleSupplierChange(e.target.value)}>
+              <option value="">{t.whr_select_supplier_opt}</option>
+              {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="__new__">{t.sup_add_btn}</option>
+            </select>
+            {selectedSupplier?.vat_status === "vat_eu" && (
+              <div style={{ fontSize: 11, color: "#1D4ED8", marginTop: 4 }}>ℹ {t.whr_vat_eu_hint}</div>
+            )}
           </div>
         </div>
         <div className="form-group">
@@ -539,6 +571,15 @@ function ReceiptModal({ t, items, onClose, onDone, showToast }) {
         </div>
       </div>
     </div>
+    {showQuickSupplier && (
+      <SupplierFormModal
+        t={t} mode="quick"
+        onClose={() => setShowQuickSupplier(false)}
+        onSaved={handleQuickSupplierSaved}
+        onError={showToast}
+      />
+    )}
+    </>
   );
 }
 

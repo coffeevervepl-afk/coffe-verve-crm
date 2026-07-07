@@ -471,6 +471,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden
                 onChange={e => e.target.files.length && uploadImages(e.target.files)} />
             </div>
+            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>Квадрат 1:1, формат JPG, до 2MB. Рекомендуем Snapseed для обрезки.</div>
           </div>
 
           <div className="drawer-section">
@@ -487,6 +488,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
                 </button>
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" hidden
                   onChange={e => e.target.files.length && uploadVideo(e.target.files[0])} />
+                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>Квадрат 1:1, формат MP4, до 30MB. Рекомендуем CapCut для обрезки.</div>
               </div>
             )}
           </div>

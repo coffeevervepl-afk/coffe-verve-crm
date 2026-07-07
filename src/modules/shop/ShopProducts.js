@@ -349,9 +349,11 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
   const [form, setForm] = useState(product);
   const [descTab, setDescTab] = useState("ru");
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const dragImgIndex = useRef(null);
   const fileInputRef = useRef(null);
+  const videoInputRef = useRef(null);
   const ROAST_LABELS = getRoastLabels(t);
   const PROCESS_OPTIONS = getProcessOptions(t);
 
@@ -422,6 +424,28 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
     saveFields({ images: next });
   }
 
+  async function uploadVideo(file) {
+    setUploadingVideo(true);
+    const path = `products/${form.slug || product.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("videos").upload(path, file);
+    setUploadingVideo(false);
+    if (error) { onError(t.sp_err_video_upload + error.message); return; }
+    const { data } = supabase.storage.from("videos").getPublicUrl(path);
+    await saveFields({ video_url: data.publicUrl });
+  }
+
+  async function removeVideo() {
+    const url = form.video_url;
+    await saveFields({ video_url: null });
+    const marker = "/object/public/videos/";
+    const idx = url ? url.indexOf(marker) : -1;
+    if (idx !== -1) {
+      const path = url.slice(idx + marker.length);
+      const { error } = await supabase.storage.from("videos").remove([path]);
+      if (error) onError(t.sp_err_video_remove + error.message);
+    }
+  }
+
   const publishable = isPublishable(form);
 
   return (
@@ -447,6 +471,24 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden
                 onChange={e => e.target.files.length && uploadImages(e.target.files)} />
             </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">{t.sp_video_section}</div>
+            {form.video_url ? (
+              <div>
+                <video src={form.video_url} controls style={{ width: "100%", maxHeight: 240, borderRadius: 8, background: "#000" }} />
+                <button className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={removeVideo}>{t.sp_video_remove_btn}</button>
+              </div>
+            ) : (
+              <div>
+                <button className="btn btn-secondary btn-sm" disabled={uploadingVideo} onClick={() => videoInputRef.current?.click()}>
+                  {uploadingVideo ? "…" : t.sp_video_upload_btn}
+                </button>
+                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" hidden
+                  onChange={e => e.target.files.length && uploadVideo(e.target.files[0])} />
+              </div>
+            )}
           </div>
 
           <div className="drawer-section">

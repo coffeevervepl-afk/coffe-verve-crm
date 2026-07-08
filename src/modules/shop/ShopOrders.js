@@ -81,6 +81,34 @@ function buildMessageText(order) {
   return templates[lang];
 }
 
+const GRIND_LABELS = {
+  espresso: "Эспрессо / Espresso",
+  aeropress: "Аэропресс / Aeropress",
+  pourover: "Пуровер / Кемекс / Drip / Chemex",
+  frenchpress: "Френч-пресс / French press",
+  turka: "Турка / Tygielek",
+  moka: "Мока / Kawiarka",
+};
+function grindInfo(item) {
+  if (item.grind === "ground" && item.grind_option && GRIND_LABELS[item.grind_option]) {
+    return { ground: true, label: `Молотый · ${GRIND_LABELS[item.grind_option]}` };
+  }
+  return { ground: false, label: "В зёрнах / W ziarnach" };
+}
+function GrindBadge({ item }) {
+  const gi = grindInfo(item);
+  return (
+    <span style={{
+      display: "inline-block", fontSize: 11, fontWeight: 600, padding: "1px 8px",
+      borderRadius: 10, marginTop: 3,
+      background: gi.ground ? "#EFF6FF" : "#F3F4F6",
+      color: gi.ground ? "#2B58A1" : "#6B7280",
+    }}>
+      {gi.label}
+    </span>
+  );
+}
+
 function compositionSummary(items, t) {
   if (!items || items.length === 0) return { short: "—", full: "" };
   const first = items[0];
@@ -111,7 +139,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("shop_orders")
-      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total), shop_users(telegram)")
+      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total, grind, grind_option), shop_users(telegram)")
       .order("created_at", { ascending: false });
     if (error) showToast(t.prod_err_load_orders + error.message);
     setOrders(data || []);
@@ -338,9 +366,12 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
           <div className="drawer-section">
             <div className="drawer-section-title">{t.so_composition_col}</div>
             {(order.shop_order_items || []).map((it, i) => (
-              <div key={i} className="detail-row">
-                <span className="detail-label">{it.product_name} {it.weight}{t.unit_g} ×{it.quantity}</span>
-                <span className="detail-value">{fmtMoney(it.line_total)}</span>
+              <div key={i} style={{ padding: "9px 0", borderBottom: "1px solid #F3F4F6" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                  <span className="detail-label">{it.product_name} {it.weight}{t.unit_g} ×{it.quantity}</span>
+                  <span className="detail-value">{fmtMoney(it.line_total)}</span>
+                </div>
+                <GrindBadge item={it} />
               </div>
             ))}
             {promo?.shop_promo_codes?.code && (

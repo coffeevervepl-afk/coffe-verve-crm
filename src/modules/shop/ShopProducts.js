@@ -51,7 +51,15 @@ const EDITABLE_FIELD_KEYS = [
   "flavor_notes_ru", "flavor_notes_pl", "flavor_notes_ua",
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
+  "body", "acidity", "sca_score", "variety", "caffeine", "roaster",
 ];
+
+function clampInt(value, min, max) {
+  if (value === "" || value == null) return null;
+  const n = Math.round(Number(value));
+  if (Number.isNaN(n)) return null;
+  return Math.min(max, Math.max(min, n));
+}
 
 export default function ShopProducts({ lang }) {
   const t = T[lang];
@@ -528,6 +536,47 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
                   {Object.keys(ROAST_LABELS).map(r => <option key={r} value={r}>{ROAST_LABELS[r]}</option>)}
                 </select>
               </div>
+            </div>
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-title">{t.sp_char_section}</div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.sp_body_label}</label>
+                <input className="input" type="number" min={1} max={5} placeholder={t.sp_char_15_placeholder}
+                  value={form.body ?? ""}
+                  onChange={e => setForm({ ...form, body: e.target.value })}
+                  onBlur={() => saveFields({ body: clampInt(form.body, 1, 5) })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.sp_acidity_label}</label>
+                <input className="input" type="number" min={1} max={5} placeholder={t.sp_char_15_placeholder}
+                  value={form.acidity ?? ""}
+                  onChange={e => setForm({ ...form, acidity: e.target.value })}
+                  onBlur={() => saveFields({ acidity: clampInt(form.acidity, 1, 5) })} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.sp_sca_label}</label>
+              <input className="input" type="number" min={0} max={100} placeholder={t.sp_sca_placeholder}
+                value={form.sca_score ?? ""}
+                onChange={e => setForm({ ...form, sca_score: e.target.value })}
+                onBlur={() => saveFields({ sca_score: clampInt(form.sca_score, 0, 100) })} />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{t.sp_variety_label}</label>
+                <input className="input" value={form.variety || ""} onChange={e => setForm({ ...form, variety: e.target.value })} onBlur={() => saveFields({ variety: form.variety || null })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t.sp_caffeine_label}</label>
+                <input className="input" placeholder={t.sp_caffeine_placeholder} value={form.caffeine || ""} onChange={e => setForm({ ...form, caffeine: e.target.value })} onBlur={() => saveFields({ caffeine: form.caffeine || null })} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.sp_roaster_label}</label>
+              <input className="input" value={form.roaster || ""} onChange={e => setForm({ ...form, roaster: e.target.value })} onBlur={() => saveFields({ roaster: form.roaster || null })} />
             </div>
           </div>
 

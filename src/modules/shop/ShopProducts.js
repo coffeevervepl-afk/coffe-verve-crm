@@ -320,6 +320,29 @@ function AddFromCrmModal({ t, existingIds, onClose, onCreated, onError }) {
   );
 }
 
+function DotRating({ value, onChange, max = 5, readOnly = false }) {
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {Array.from({ length: max }, (_, i) => i + 1).map(n => {
+        const filled = value != null && n <= value;
+        return (
+          <span
+            key={n}
+            onClick={readOnly ? undefined : () => onChange(value === n ? null : n)}
+            style={{
+              width: 20, height: 20, borderRadius: "50%",
+              background: filled ? "#412618" : "transparent",
+              border: `1px solid ${filled ? "#412618" : "#D8D3CC"}`,
+              cursor: readOnly ? "default" : "pointer",
+              flexShrink: 0,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function NoteChips({ t, value, lang, onChange }) {
   const selected = (value || "").split("•").map(s => s.trim()).filter(Boolean);
   const [custom, setCustom] = useState("");
@@ -543,18 +566,12 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="drawer-section-title">{t.sp_char_section}</div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">{t.sp_body_label}</label>
-                <input className="input" type="number" min={1} max={5} placeholder={t.sp_char_15_placeholder}
-                  value={form.body ?? ""}
-                  onChange={e => setForm({ ...form, body: e.target.value })}
-                  onBlur={() => saveFields({ body: clampInt(form.body, 1, 5) })} />
+                <label className="form-label">{t.sp_body_label}: {form.body ? `${form.body}/5` : "—"}</label>
+                <DotRating value={form.body ?? null} onChange={n => saveFields({ body: n })} />
               </div>
               <div className="form-group">
-                <label className="form-label">{t.sp_acidity_label}</label>
-                <input className="input" type="number" min={1} max={5} placeholder={t.sp_char_15_placeholder}
-                  value={form.acidity ?? ""}
-                  onChange={e => setForm({ ...form, acidity: e.target.value })}
-                  onBlur={() => saveFields({ acidity: clampInt(form.acidity, 1, 5) })} />
+                <label className="form-label">{t.sp_acidity_label}: {form.acidity ? `${form.acidity}/5` : "—"}</label>
+                <DotRating value={form.acidity ?? null} onChange={n => saveFields({ acidity: n })} />
               </div>
             </div>
             <div className="form-group">

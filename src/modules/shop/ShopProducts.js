@@ -51,7 +51,7 @@ const EDITABLE_FIELD_KEYS = [
   "flavor_notes_ru", "flavor_notes_pl", "flavor_notes_ua",
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
-  "body", "acidity", "sca_score", "variety", "caffeine", "roaster",
+  "body", "acidity", "sca_score", "variety", "caffeine", "roaster", "is_featured",
 ];
 
 function clampInt(value, min, max) {
@@ -594,6 +594,15 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="form-group">
               <label className="form-label">{t.sp_roaster_label}</label>
               <input className="input" value={form.roaster || ""} onChange={e => setForm({ ...form, roaster: e.target.value })} onBlur={() => saveFields({ roaster: form.roaster || null })} />
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <span className="toggle-switch">
+                  <input type="checkbox" checked={!!form.is_featured} onChange={e => saveFields({ is_featured: e.target.checked })} />
+                  <span className="toggle-slider" />
+                </span>
+                <span style={{ fontSize: 13, color: "#374151" }}>{t.sp_featured_label || "Рекомендуем (показывать в карусели на главной)"}</span>
+              </label>
             </div>
           </div>
 

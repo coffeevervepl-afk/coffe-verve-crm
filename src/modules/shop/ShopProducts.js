@@ -406,6 +406,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
     if (error) { onError(t.wf_err_save + error.message); return; }
     onUpdated({ id: product.id, ...fields });
     onError(t.sp_product_saved);
+    onClose();
   }
 
   async function uploadImages(files) {

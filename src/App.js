@@ -828,13 +828,19 @@ function CRMApp({ session }) {
     return () => supabase.removeChannel(channel);
   }, [userLoaded, currentUser]); // eslint-disable-line
 
-  // Звук + заметный тост при новом CRM-заказе (orders, status='new') — напр.
-  // созданном вручную в CRM. Заказы с сайта уже уведомляются через shop_orders
-  // выше, поэтому строки с shop_order_id пропускаем, чтобы не дублировать.
-  // Тот же паттерн подписки, что у бейджа + polling каждые 25с как fallback
-  // на случай отвала Realtime-канала (уже случалось ранее).
+  // Звук + заметный тост при появлении заказа в orders.
+  // Заказы с сайта (shop_order_id заполнен) создаются уже оплаченными — часто
+  // сразу со статусом 'processing', минуя 'new' — поэтому для них уведомляем при
+  // ЛЮБОМ статусе на INSERT. Ручные CRM-заказы (shop_order_id = null) значимы
+  // только как новые (status='new'). Тот же паттерн подписки, что у бейджа,
+  // + polling каждые 25с как fallback на случай отвала Realtime-канала.
   useEffect(() => {
     if (!userLoaded || !canSeeModule(currentUser, "orders")) return;
+
+    // Заказ с сайта — уведомляем всегда; ручной — только пока он new.
+    function qualifies(row) {
+      return row.shop_order_id ? true : row.status === "new";
+    }
 
     function toastOrder(row, clientName) {
       pushOrderToast({
@@ -848,33 +854,32 @@ function CRMApp({ session }) {
       orderSound.play();
     }
 
-    async function fetchNew() {
+    async function fetchRecent() {
       const { data } = await supabase
         .from("orders")
-        .select("id, order_number, total, shop_order_id, clients(name)")
-        .eq("status", "new")
-        .is("shop_order_id", null)
+        .select("id, order_number, total, status, shop_order_id, clients(name)")
         .order("created_at", { ascending: false })
         .limit(20);
       return data || [];
     }
 
-    // seedOnly=true (первый заход): помечаем существующие new-заказы виденными
-    // без тоста, чтобы уведомлять только о появившихся после загрузки.
+    // seedOnly=true (первый заход): помечаем существующие заказы виденными без
+    // тоста, чтобы уведомлять только о появившихся после загрузки.
     function markAndMaybeToast(rows, seedOnly) {
       if (!seenOrderIds.current) seenOrderIds.current = new Set();
       for (const row of rows) {
+        if (!qualifies(row)) continue;
         if (seenOrderIds.current.has(row.id)) continue;
         seenOrderIds.current.add(row.id);
         if (!seedOnly) toastOrder(row, row.clients?.name);
       }
     }
 
-    fetchNew().then(rows => markAndMaybeToast(rows, true));
+    fetchRecent().then(rows => markAndMaybeToast(rows, true));
 
     async function handleInsert(payload) {
       const row = payload.new;
-      if (!row || row.status !== "new" || row.shop_order_id) return;
+      if (!row || !qualifies(row)) return;
       if (!seenOrderIds.current) seenOrderIds.current = new Set();
       if (seenOrderIds.current.has(row.id)) return;
       seenOrderIds.current.add(row.id);
@@ -891,7 +896,7 @@ function CRMApp({ session }) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, handleInsert)
       .subscribe();
 
-    const interval = setInterval(() => { fetchNew().then(rows => markAndMaybeToast(rows, false)); }, 25000);
+    const interval = setInterval(() => { fetchRecent().then(rows => markAndMaybeToast(rows, false)); }, 25000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -2179,6 +2184,16 @@ function OrderQRModal({ t, lang, order, onClose, onRefresh }) {
 // ============================================================
 const N8N_WEBHOOK_URL = "https://n8n.coffeeverve.pl/webhook/bartender-print";
 
+// Grind fineness (grind_option) → Russian, shown only for ground coffee.
+const GRIND_OPTION_RU = {
+  espresso: "эспрессо",
+  aeropress: "аэропресс",
+  pourover: "пуровер",
+  frenchpress: "френч-пресс",
+  turka: "турка",
+  moka: "мока",
+};
+
 function Orders({ t, lang }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -2286,7 +2301,12 @@ function Orders({ t, lang }) {
                     <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
                     <td style={{ color: "#6B7280" }}>
                       {o.weight}{t.unit_g}
-                      {o.grind && <span style={{ color: "#9CA3AF" }}> · {o.grind === "whole" ? t.grind_whole : o.grind === "ground" ? t.grind_ground : o.grind}</span>}
+                      {o.grind && (
+                        <span style={{ color: "#9CA3AF" }}>
+                          {" · "}{o.grind === "whole" ? t.grind_whole : o.grind === "ground" ? t.grind_ground : o.grind}
+                          {o.grind === "ground" && o.grind_option ? ` (${GRIND_OPTION_RU[o.grind_option] || o.grind_option})` : ""}
+                        </span>
+                      )}
                     </td>
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                     <td>

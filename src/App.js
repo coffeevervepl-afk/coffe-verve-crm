@@ -2429,6 +2429,7 @@ function Warranties({ t }) {
   const [warranties, setWarranties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     async function fetch() {
@@ -2470,9 +2471,17 @@ function Warranties({ t }) {
               <tbody>
                 {warranties.map(w => (
                   <tr key={w.id}>
-                    <td style={{ fontWeight: 500 }}>{w.orders?.clients?.name || "—"}</td>
-                    <td style={{ color: "#6B7280" }}>{w.orders?.products?.name || "—"}</td>
-                    <td style={{ color: "#6B7280", fontSize: 12, maxWidth: 200 }}>{w.reason}</td>
+                    <td style={{ fontWeight: 500, cursor: "pointer" }} onClick={() => setSelected(w)}>{w.orders?.clients?.name || "—"}</td>
+                    <td style={{ color: "#6B7280", cursor: "pointer" }} onClick={() => setSelected(w)}>{w.orders?.products?.name || "—"}</td>
+                    <td style={{ color: "#6B7280", fontSize: 12 }}>
+                      <div
+                        style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }}
+                        title={w.reason}
+                        onClick={() => setSelected(w)}
+                      >
+                        {w.reason}
+                      </div>
+                    </td>
                     <td>
                       <select className="input" style={{ padding: "3px 6px", fontSize: 12 }} value={w.status} onChange={e => updateWarranty(w.id, { status: e.target.value })}>
                         {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -2483,7 +2492,7 @@ function Warranties({ t }) {
                         {Object.entries(resLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                     </td>
-                    <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(w.activated_at)}</td>
+                    <td style={{ color: "#4B5563", fontSize: 12, cursor: "pointer" }} onClick={() => setSelected(w)}>{fmtDate(w.activated_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2491,6 +2500,24 @@ function Warranties({ t }) {
           </div>
         )}
       </div>
+
+      {selected && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelected(null)}>
+          <div className="modal">
+            <div className="modal-title">{t.warranty_reason}</div>
+            <div className="detail-row"><span className="detail-label">{t.client}</span><span className="detail-value">{selected.orders?.clients?.name || "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.product}</span><span className="detail-value">{selected.orders?.products?.name || "—"}</span></div>
+            <div className="detail-row"><span className="detail-label">{t.date}</span><span className="detail-value">{fmtDate(selected.activated_at)}</span></div>
+            <div style={{ marginTop: 14 }}>
+              <div className="detail-label" style={{ marginBottom: 6 }}>{t.warranty_reason}</div>
+              <div style={{ fontSize: 14, color: "#1F2937", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{selected.reason}</div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setSelected(null)}>{t.close}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

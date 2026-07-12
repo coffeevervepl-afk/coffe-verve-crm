@@ -2284,7 +2284,10 @@ function Orders({ t, lang }) {
                       <div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div>
                     </td>
                     <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
-                    <td style={{ color: "#6B7280" }}>{o.weight}{t.unit_g}</td>
+                    <td style={{ color: "#6B7280" }}>
+                      {o.weight}{t.unit_g}
+                      {o.grind && <span style={{ color: "#9CA3AF" }}> · {o.grind === "whole" ? t.grind_whole : o.grind === "ground" ? t.grind_ground : o.grind}</span>}
+                    </td>
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
                     <td>
                       <select

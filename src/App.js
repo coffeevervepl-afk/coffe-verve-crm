@@ -2145,7 +2145,23 @@ function Orders({ t, lang }) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    fetchOrders();
+    // The list was only fetched on mount, so orders created after the page
+    // loaded — including ones auto-inserted into `orders` by the shop→CRM
+    // trigger (created_by = null) — never appeared until a manual reload.
+    // Subscribe to changes (like the sidebar badge does) + poll as a fallback
+    // in case the realtime channel drops.
+    const channel = supabase
+      .channel("orders-list-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchOrders())
+      .subscribe();
+    const interval = setInterval(fetchOrders, 30000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [fetchOrders]);
 
   async function changeStatus(id, status) {
     await supabase.from("orders").update({ status }).eq("id", id);

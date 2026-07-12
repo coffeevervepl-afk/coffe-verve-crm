@@ -784,50 +784,6 @@ function CRMApp({ session }) {
     };
   }, [userLoaded, currentUser]); // eslint-disable-line
 
-  // Звук + тост при новом оплаченном заказе магазина: срабатывает либо на
-  // INSERT сразу с payment_status=paid (напр. оплата наличными), либо на
-  // UPDATE, где payment_status переходит в paid из другого значения
-  // (обычный путь — вебхук Stripe подтверждает оплату после создания заказа
-  // со статусом pending). REPLICA IDENTITY FULL на shop_orders обязателен,
-  // иначе payload.old не содержит предыдущего payment_status и переход не
-  // отличить от повторного UPDATE уже оплаченного заказа.
-  useEffect(() => {
-    if (!userLoaded || !canSeeModule(currentUser, "shop_orders")) return;
-
-    async function handleEvent(payload) {
-      const row = payload.new;
-      if (!row) return;
-      const wasPaid = payload.old?.payment_status === "paid";
-      const isPaid = row.payment_status === "paid";
-      if (!isPaid || (payload.eventType === "UPDATE" && wasPaid)) return;
-
-      const { data: items } = await supabase
-        .from("shop_order_items")
-        .select("product_name, quantity")
-        .eq("shop_order_id", row.id);
-      const itemsText = (items || [])
-        .map(i => i.quantity > 1 ? `${i.product_name} ×${i.quantity}` : i.product_name)
-        .join(", ") || "—";
-
-      pushOrderToast({
-        id: `${row.id}-${row.updated_at || row.created_at}`,
-        orderId: row.id,
-        orderNumber: row.order_number,
-        itemsText,
-        total: row.total,
-      });
-      orderSound.play();
-    }
-
-    const channel = supabase
-      .channel("shop_orders-notify-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "shop_orders" }, handleEvent)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "shop_orders" }, handleEvent)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, [userLoaded, currentUser]); // eslint-disable-line
-
   // Звук + заметный тост при появлении заказа в orders.
   // Заказы с сайта (shop_order_id заполнен) создаются уже оплаченными — часто
   // сразу со статусом 'processing', минуя 'new' — поэтому для них уведомляем при

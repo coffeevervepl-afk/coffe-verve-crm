@@ -622,6 +622,9 @@ function CRMApp({ session }) {
   const [paidShopOrders, setPaidShopOrders] = useState(0);
   const [orderToasts, setOrderToasts] = useState([]);
   const toastTimers = useRef({});
+  // Ids of CRM `orders` already notified about, shared by the realtime + polling
+  // paths so a new order is toasted once. null = not seeded yet.
+  const seenOrderIds = useRef(null);
   const orderSound = useOrderSound();
   const [openShopOrderId, setOpenShopOrderId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -635,8 +638,9 @@ function CRMApp({ session }) {
   }
 
   function pushOrderToast(toastData) {
-    setOrderToasts(prev => [...prev, toastData]);
-    toastTimers.current[toastData.id] = setTimeout(() => dismissToast(toastData.id), 8000);
+    setOrderToasts(prev => (prev.some(x => x.id === toastData.id) ? prev : [...prev, toastData]));
+    clearTimeout(toastTimers.current[toastData.id]);
+    toastTimers.current[toastData.id] = setTimeout(() => dismissToast(toastData.id), 7000);
   }
 
   useEffect(() => () => { Object.values(toastTimers.current).forEach(clearTimeout); }, []);
@@ -824,6 +828,77 @@ function CRMApp({ session }) {
     return () => supabase.removeChannel(channel);
   }, [userLoaded, currentUser]); // eslint-disable-line
 
+  // Звук + заметный тост при новом CRM-заказе (orders, status='new') — напр.
+  // созданном вручную в CRM. Заказы с сайта уже уведомляются через shop_orders
+  // выше, поэтому строки с shop_order_id пропускаем, чтобы не дублировать.
+  // Тот же паттерн подписки, что у бейджа + polling каждые 25с как fallback
+  // на случай отвала Realtime-канала (уже случалось ранее).
+  useEffect(() => {
+    if (!userLoaded || !canSeeModule(currentUser, "orders")) return;
+
+    function toastOrder(row, clientName) {
+      pushOrderToast({
+        id: `order-${row.id}`,
+        type: "orders",
+        orderId: row.id,
+        orderNumber: row.order_number,
+        itemsText: clientName || "—",
+        total: row.total,
+      });
+      orderSound.play();
+    }
+
+    async function fetchNew() {
+      const { data } = await supabase
+        .from("orders")
+        .select("id, order_number, total, shop_order_id, clients(name)")
+        .eq("status", "new")
+        .is("shop_order_id", null)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return data || [];
+    }
+
+    // seedOnly=true (первый заход): помечаем существующие new-заказы виденными
+    // без тоста, чтобы уведомлять только о появившихся после загрузки.
+    function markAndMaybeToast(rows, seedOnly) {
+      if (!seenOrderIds.current) seenOrderIds.current = new Set();
+      for (const row of rows) {
+        if (seenOrderIds.current.has(row.id)) continue;
+        seenOrderIds.current.add(row.id);
+        if (!seedOnly) toastOrder(row, row.clients?.name);
+      }
+    }
+
+    fetchNew().then(rows => markAndMaybeToast(rows, true));
+
+    async function handleInsert(payload) {
+      const row = payload.new;
+      if (!row || row.status !== "new" || row.shop_order_id) return;
+      if (!seenOrderIds.current) seenOrderIds.current = new Set();
+      if (seenOrderIds.current.has(row.id)) return;
+      seenOrderIds.current.add(row.id);
+      let clientName = "";
+      if (row.client_id) {
+        const { data: c } = await supabase.from("clients").select("name").eq("id", row.client_id).maybeSingle();
+        clientName = c?.name || "";
+      }
+      toastOrder(row, clientName);
+    }
+
+    const channel = supabase
+      .channel("orders-notify-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, handleInsert)
+      .subscribe();
+
+    const interval = setInterval(() => { fetchNew().then(rows => markAndMaybeToast(rows, false)); }, 25000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [userLoaded, currentUser]); // eslint-disable-line
+
   if (!userLoaded) return <div style={{ minHeight: "100vh", background: "#F4F5F7" }} />;
 
   return (
@@ -861,11 +936,15 @@ function CRMApp({ session }) {
           {orderToasts.map(ot => (
             <div key={ot.id} className="order-toast">
               <button className="order-toast-close" onClick={() => dismissToast(ot.id)}>×</button>
-              <div className="order-toast-title">🛒 {t.new_order} №{ot.orderNumber}</div>
+              <div className="order-toast-title">{ot.type === "orders" ? "📦" : "🛒"} {t.new_order} №{ot.orderNumber}</div>
               <div className="order-toast-body">{ot.itemsText}, {fmtMoney(ot.total)}</div>
               <button
                 className="order-toast-action"
-                onClick={() => { setOpenShopOrderId(ot.orderId); setPage("shop_orders"); dismissToast(ot.id); }}
+                onClick={() => {
+                  if (ot.type === "orders") setPage("orders");
+                  else { setOpenShopOrderId(ot.orderId); setPage("shop_orders"); }
+                  dismissToast(ot.id);
+                }}
               >
                 {t.open_order_action}
               </button>

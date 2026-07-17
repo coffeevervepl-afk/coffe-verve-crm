@@ -24,6 +24,26 @@ function getProcessOptions(t) {
     { value: "Анаэробная", labelKey: "sp_process_anaerobic" },
   ];
 }
+// Canonical country list (extensible) — mirrors CRM master products.country,
+// stored verbatim in shop_products.country for the catalog "Country" filter.
+const COUNTRY_OPTIONS = [
+  "Бразилия", "Гватемала", "Гондурас", "Колумбия", "Купаж", "Мексика", "Перу", "Эфиопия",
+];
+// Curated flavor-note tags (extensible). `slug` is stored in
+// shop_products.flavor_tags (language-neutral, for overlaps() filtering);
+// `ru` is the CRM display label. Free-text flavor_notes_* stay untouched.
+const FLAVOR_TAGS = [
+  { slug: "chocolate", ru: "Шоколад" },
+  { slug: "nuts",      ru: "Орехи" },
+  { slug: "caramel",   ru: "Карамель" },
+  { slug: "citrus",    ru: "Цитрус" },
+  { slug: "berries",   ru: "Ягоды" },
+  { slug: "fruit",     ru: "Фрукты" },
+  { slug: "floral",    ru: "Цветы" },
+  { slug: "spices",    ru: "Специи" },
+  { slug: "honey",     ru: "Мёд" },
+  { slug: "vanilla",   ru: "Ваниль" },
+];
 function tpl(str, vars) {
   return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
 }
@@ -51,7 +71,8 @@ const EDITABLE_FIELD_KEYS = [
   "flavor_notes_ru", "flavor_notes_pl", "flavor_notes_ua",
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
-  "body", "acidity", "sca_score", "variety", "caffeine", "roaster", "is_featured",
+  "body", "acidity", "sca_score", "variety", "caffeine", "roaster",
+  "country", "is_decaf", "is_blend", "flavor_tags", "is_featured",
 ];
 
 function clampInt(value, min, max) {
@@ -278,6 +299,8 @@ function AddFromCrmModal({ t, existingIds, onClose, onCreated, onError }) {
       name_pl: cp.name,
       name_ua: cp.name,
       origin: cp.country,
+      country: cp.country,
+      is_blend: cp.country === "Купаж",
       flavor_notes_ru: cp.flavor_notes,
       flavor_notes_pl: cp.flavor_notes_pl,
       flavor_notes_ua: cp.flavor_notes_ua,
@@ -538,12 +561,23 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">{t.country}</label>
-                <input className="input" value={form.origin || ""} onChange={e => setForm({ ...form, origin: e.target.value })} onBlur={() => saveFields({ origin: form.origin })} />
+                <select className="input" value={form.country || ""} onChange={e => {
+                  const v = e.target.value;
+                  // country=Купаж → auto-flag as a blend (manager can still untick below)
+                  saveFields(v === "Купаж" ? { country: v, is_blend: true } : { country: v });
+                }}>
+                  <option value="">—</option>
+                  {COUNTRY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">{t.sp_altitude_label}</label>
                 <input className="input" placeholder={t.sp_altitude_placeholder} value={form.altitude || ""} onChange={e => setForm({ ...form, altitude: e.target.value })} onBlur={() => saveFields({ altitude: form.altitude })} />
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.sp_region_label}</label>
+              <input className="input" value={form.origin || ""} onChange={e => setForm({ ...form, origin: e.target.value })} onBlur={() => saveFields({ origin: form.origin })} />
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -595,6 +629,51 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="form-group">
               <label className="form-label">{t.sp_roaster_label}</label>
               <input className="input" value={form.roaster || ""} onChange={e => setForm({ ...form, roaster: e.target.value })} onBlur={() => saveFields({ roaster: form.roaster || null })} />
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label className="form-label">{t.sp_flavor_tags_label}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {FLAVOR_TAGS.map(tag => {
+                  const active = (form.flavor_tags || []).includes(tag.slug);
+                  return (
+                    <button
+                      type="button"
+                      key={tag.slug}
+                      onClick={() => {
+                        const cur = form.flavor_tags || [];
+                        const next = active ? cur.filter(s => s !== tag.slug) : [...cur, tag.slug];
+                        saveFields({ flavor_tags: next });
+                      }}
+                      style={{
+                        padding: "6px 12px", borderRadius: 999, cursor: "pointer", fontSize: 13,
+                        border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
+                        background: active ? "#3A2115" : "#fff",
+                        color: active ? "#fff" : "#374151",
+                      }}
+                    >
+                      {tag.ru}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <span className="toggle-switch">
+                  <input type="checkbox" checked={!!form.is_decaf} onChange={e => saveFields({ is_decaf: e.target.checked })} />
+                  <span className="toggle-slider" />
+                </span>
+                <span style={{ fontSize: 13, color: "#374151" }}>{t.sp_decaf_label}</span>
+              </label>
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <span className="toggle-switch">
+                  <input type="checkbox" checked={!!form.is_blend} onChange={e => saveFields({ is_blend: e.target.checked })} />
+                  <span className="toggle-slider" />
+                </span>
+                <span style={{ fontSize: 13, color: "#374151" }}>{t.sp_blend_label}</span>
+              </label>
             </div>
             <div className="form-group" style={{ marginTop: 12 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>

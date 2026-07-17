@@ -286,11 +286,11 @@ function PassportPage({ token }) {
 
   useEffect(() => {
     async function fetchOrder() {
+      // Public page (no session): read via SECURITY DEFINER RPC by qr_token so
+      // the orders/products/clients tables don't need open anon SELECT. Returns
+      // only what the passport shows (incl. clients.language, no other PII).
       const { data, error } = await supabase
-        .from("orders")
-        .select("*, products(*), clients(*)")
-        .eq("qr_token", token)
-        .single();
+        .rpc("get_passport_by_token", { p_token: token });
       if (error || !data) setError(true);
       else setOrder(data);
       setLoading(false);
@@ -406,13 +406,9 @@ function PassportPage({ token }) {
     if (!formReason) return;
     setFormSending(true);
     const reason = formComment ? `${formReason}: ${formComment}` : formReason;
-    await supabase.from("warranties").insert({
-      order_id: order.id,
-      reason,
-      status: "new",
-      resolution: "pending",
-      activated_at: new Date().toISOString(),
-    });
+    // Write via SECURITY DEFINER RPC (token = authorization) instead of a direct
+    // anon INSERT into warranties.
+    await supabase.rpc("create_passport_report", { p_token: token, p_reason: reason });
     setFormSending(false);
     setFormSent(true);
   }

@@ -44,6 +44,17 @@ const FLAVOR_TAGS = [
   { slug: "honey",     ru: "Мёд" },
   { slug: "vanilla",   ru: "Ваниль" },
 ];
+// Brewing methods a coffee is suitable for (multi-select). value -> stored in
+// shop_products.brew_method (text[]); drives the /shop "#Для ..." filter tags.
+const BREW_METHODS = [
+  { value: "espresso",    ru: "Эспрессо / кофемашина" },
+  { value: "filter",      ru: "Фильтр / пуровер" },
+  { value: "turka",       ru: "Турка" },
+  { value: "aeropress",   ru: "Аэропресс" },
+  { value: "frenchpress", ru: "Френч-пресс" },
+  { value: "cup",         ru: "Для чашки (заваривание в чашке)" },
+  { value: "moka",        ru: "Гейзерная кофеварка (мока)" },
+];
 function tpl(str, vars) {
   return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
 }
@@ -72,7 +83,7 @@ const EDITABLE_FIELD_KEYS = [
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
   "body", "acidity", "sca_score", "variety", "caffeine", "roaster",
-  "country", "is_decaf", "is_blend", "flavor_tags", "is_featured",
+  "country", "is_decaf", "is_blend", "flavor_tags", "brew_method", "is_featured",
 ];
 
 function clampInt(value, min, max) {
@@ -629,6 +640,30 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="form-group">
               <label className="form-label">{t.sp_roaster_label}</label>
               <input className="input" value={form.roaster || ""} onChange={e => setForm({ ...form, roaster: e.target.value })} onBlur={() => saveFields({ roaster: form.roaster || null })} />
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label className="form-label">{t.sp_brew_label}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {BREW_METHODS.map(m => {
+                  const cur = Array.isArray(form.brew_method) ? form.brew_method : (form.brew_method ? [form.brew_method] : []);
+                  const active = cur.includes(m.value);
+                  return (
+                    <button
+                      type="button"
+                      key={m.value}
+                      onClick={() => saveFields({ brew_method: active ? cur.filter(v => v !== m.value) : [...cur, m.value] })}
+                      style={{
+                        padding: "6px 12px", borderRadius: 999, cursor: "pointer", fontSize: 13,
+                        border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
+                        background: active ? "#3A2115" : "#fff",
+                        color: active ? "#fff" : "#374151",
+                      }}
+                    >
+                      {m.ru}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="form-group" style={{ marginTop: 12 }}>
               <label className="form-label">{t.sp_flavor_tags_label}</label>

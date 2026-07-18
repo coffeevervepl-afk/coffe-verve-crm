@@ -83,7 +83,7 @@ const EDITABLE_FIELD_KEYS = [
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
   "body", "acidity", "sca_score", "variety", "caffeine", "roaster",
-  "country", "is_decaf", "is_blend", "flavor_tags", "brew_method", "is_featured",
+  "country", "is_decaf", "is_blend", "flavor_tags", "brew_method", "is_featured", "product_type",
 ];
 
 function clampInt(value, min, max) {
@@ -424,6 +424,50 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
 
   useEffect(() => { setForm(product); }, [product]);
 
+  // ── Bundles: pickable single products + this bundle's current composition ──
+  const [bundleSingles, setBundleSingles] = useState([]);
+  const [bundleSel, setBundleSel] = useState({}); // { product_id: weight }
+
+  useEffect(() => {
+    let alive = true;
+    supabase.from("shop_products").select("id, name_ru, price_250")
+      .eq("is_active", true).eq("product_type", "single").order("name_ru")
+      .then(({ data }) => { if (alive) setBundleSingles(data || []); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    if (product.product_type === "bundle") {
+      supabase.from("shop_bundle_items").select("product_id, weight").eq("bundle_id", product.id)
+        .then(({ data }) => {
+          if (!alive) return;
+          const m = {};
+          (data || []).forEach(bi => { m[bi.product_id] = bi.weight; });
+          setBundleSel(m);
+        });
+    } else {
+      setBundleSel({});
+    }
+    return () => { alive = false; };
+  }, [product.id, product.product_type]);
+
+  const bundleRows = bundleSingles.filter(p => p.id !== product.id);
+  const bundleCount = Object.keys(bundleSel).length;
+  const bundleTotalWeight = Object.values(bundleSel).reduce((s, w) => s + (Number(w) || 0), 0);
+  const bundleTotalPrice = bundleRows.reduce((s, p) => s + (p.id in bundleSel ? Number(p.price_250 || 0) : 0), 0);
+
+  function toggleBundleItem(id) {
+    setBundleSel(prev => {
+      const next = { ...prev };
+      if (id in next) delete next[id]; else next[id] = 250;
+      return next;
+    });
+  }
+  function setBundleWeight(id, w) {
+    setBundleSel(prev => ({ ...prev, [id]: Math.max(1, parseInt(w, 10) || 250) }));
+  }
+
   async function saveFields(fields) {
     setForm(prev => ({ ...prev, ...fields }));
     const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
@@ -435,9 +479,28 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
     setSavingAll(true);
     const fields = {};
     EDITABLE_FIELD_KEYS.forEach(k => { fields[k] = form[k] === "" ? null : form[k]; });
+    const isBundle = form.product_type === "bundle";
+    if (isBundle) {
+      // Bundle price is auto = sum of components' price_250; no 1kg option.
+      fields.price_250 = bundleTotalPrice;
+      fields.price_1000 = null;
+    }
     const { error } = await supabase.from("shop_products").update(fields).eq("id", product.id);
+    if (error) { setSavingAll(false); onError(t.wf_err_save + error.message); return; }
+
+    if (isBundle) {
+      // Rewrite composition: clear then insert the current selection.
+      await supabase.from("shop_bundle_items").delete().eq("bundle_id", product.id);
+      const rows = Object.entries(bundleSel).map(([pid, w]) => ({
+        bundle_id: product.id, product_id: pid, weight: Number(w) || 250,
+      }));
+      if (rows.length) {
+        const { error: biErr } = await supabase.from("shop_bundle_items").insert(rows);
+        if (biErr) { setSavingAll(false); onError(t.wf_err_save + biErr.message); return; }
+      }
+    }
+
     setSavingAll(false);
-    if (error) { onError(t.wf_err_save + error.message); return; }
     onUpdated({ id: product.id, ...fields });
     onError(t.sp_product_saved);
     onClose();
@@ -732,6 +795,53 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
           </div>
 
           <div className="drawer-section">
+            <div className="drawer-section-title">{t.sp_ptype_label}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["single", t.sp_type_single], ["bundle", t.sp_type_bundle]].map(([val, label]) => {
+                const active = (form.product_type || "single") === val;
+                return (
+                  <button type="button" key={val} onClick={() => saveFields({ product_type: val })}
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                      border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
+                      background: active ? "#3A2115" : "#fff", color: active ? "#fff" : "#374151" }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {form.product_type === "bundle" && (
+            <div className="drawer-section">
+              <div className="drawer-section-title">{t.sp_bundle_section}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {bundleRows.map(p => {
+                  const checked = p.id in bundleSel;
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleBundleItem(p.id)} />
+                      <span style={{ flex: 1 }}>
+                        {p.name_ru} <span style={{ color: "#888" }}>({Number(p.price_250 || 0).toFixed(2)} zł)</span>
+                      </span>
+                      {checked && (
+                        <>
+                          <input className="input" type="number" style={{ width: 70 }} value={bundleSel[p.id]}
+                            onChange={e => setBundleWeight(p.id, e.target.value)} />
+                          <span style={{ color: "#888" }}>г</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #E5E7EB", fontWeight: 700 }}>
+                {t.sp_bundle_total}: {bundleCount} × {bundleTotalWeight}г = {bundleTotalPrice.toFixed(2)} zł
+              </div>
+            </div>
+          )}
+
+          {form.product_type !== "bundle" && (
+          <div className="drawer-section">
             <div className="drawer-section-title">{t.sp_prices_section}</div>
             {[250, 500, 1000].map(w => (
               <div key={w} className="form-row" style={{ marginBottom: 8 }}>
@@ -746,6 +856,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
               </div>
             ))}
           </div>
+          )}
 
           <CostMarginBlock t={t} product={form} showToast={onError} />
 

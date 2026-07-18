@@ -748,7 +748,9 @@ function CRMApp({ session }) {
     const channel = supabase
       .channel("orders-badge-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchCount())
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR") console.error("orders-badge-realtime error:", err);
+      });
     const interval = setInterval(fetchCount, 30000);
     return () => {
       supabase.removeChannel(channel);
@@ -772,7 +774,9 @@ function CRMApp({ session }) {
     const channel = supabase
       .channel("shop_orders-badge-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "shop_orders" }, () => fetchCount())
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR") console.error("shop_orders-badge-realtime error:", err);
+      });
     const interval = setInterval(fetchCount, 30000);
     return () => {
       supabase.removeChannel(channel);
@@ -846,7 +850,9 @@ function CRMApp({ session }) {
     const channel = supabase
       .channel("orders-notify-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, handleInsert)
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR") console.error("orders-notify-realtime error:", err);
+      });
 
     const interval = setInterval(() => { fetchRecent().then(rows => markAndMaybeToast(rows, false)); }, 25000);
 
@@ -930,7 +936,12 @@ function AuthGate() {
   const [justSignedOut, setJustSignedOut] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      // Authorize the Realtime socket with the manager JWT so RLS-protected
+      // postgres_changes (is_crm_staff()) are delivered, not silently dropped.
+      supabase.realtime.setAuth(data.session?.access_token ?? null);
+      setSession(data.session);
+    });
     // Supabase fires PASSWORD_RECOVERY when the URL hash carries a recovery token,
     // regardless of which path the email link's redirect actually landed on
     // (e.g. if /set-password isn't in the project's Redirect URLs allowlist yet
@@ -939,6 +950,9 @@ function AuthGate() {
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
       if (event === "SIGNED_OUT") setJustSignedOut(true);
       if (event === "SIGNED_IN") setJustSignedOut(false);
+      // Keep the Realtime socket's JWT in sync (login / TOKEN_REFRESHED / logout)
+      // so channels created afterwards authorize as the authenticated manager.
+      supabase.realtime.setAuth(s?.access_token ?? null);
       setSession(s);
     });
     return () => sub.subscription.unsubscribe();
@@ -2201,7 +2215,9 @@ function Orders({ t, lang }) {
     const channel = supabase
       .channel("orders-list-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchOrders())
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR") console.error("orders-list-realtime error:", err);
+      });
     const interval = setInterval(fetchOrders, 30000);
     return () => {
       supabase.removeChannel(channel);

@@ -798,19 +798,28 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
 
           <div className="drawer-section">
             <div className="drawer-section-title">{t.sp_ptype_label}</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[["single", t.sp_type_single], ["bundle", t.sp_type_bundle]].map(([val, label]) => {
-                const active = (form.product_type || "single") === val;
-                return (
-                  <button type="button" key={val} onClick={() => saveFields({ product_type: val })}
-                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 600,
-                      border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
-                      background: active ? "#3A2115" : "#fff", color: active ? "#fff" : "#374151" }}>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+            {!product.id ? (
+              // New product only: type is selectable.
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["single", t.sp_type_single], ["bundle", t.sp_type_bundle]].map(([val, label]) => {
+                  const active = (form.product_type || "single") === val;
+                  return (
+                    <button type="button" key={val} onClick={() => saveFields({ product_type: val })}
+                      style={{ flex: 1, padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                        border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
+                        background: active ? "#3A2115" : "#fff", color: active ? "#fff" : "#374151" }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              // Existing product: read-only to prevent accidental type changes
+              // (which would null the price/1kg and drop data).
+              <div style={{ fontWeight: 600, color: "#374151" }}>
+                {form.product_type === "bundle" ? t.sp_type_bundle : t.sp_type_single}
+              </div>
+            )}
           </div>
 
           {form.product_type === "bundle" && (

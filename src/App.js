@@ -214,7 +214,9 @@ const styles = `
   .nav-item.disabled:hover { background: none; color: rgba(255,255,255,0.65); }
   .nav-soon { margin-left: auto; font-size: 9px; background: rgba(255,255,255,0.12); padding: 1px 6px; border-radius: 8px; }
   .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; display: flex; justify-content: flex-end; }
-  .drawer { background: #fff; width: 100%; max-width: 480px; height: 100vh; overflow-y: auto; box-shadow: -8px 0 32px rgba(0,0,0,0.14); animation: drawer-in 0.2s ease-out; }
+  .drawer { background: #fff; width: 760px; max-width: 100%; height: 100vh; overflow-y: auto; box-shadow: -8px 0 32px rgba(0,0,0,0.14); animation: drawer-in 0.2s ease-out; }
+  @media (max-width: 1200px) { .drawer { width: 68vw; } }
+  @media (max-width: 768px) { .drawer { width: 100%; } }
   @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   .drawer-header { padding: 18px 22px; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 2; }
   .drawer-title { font-size: 15px; font-weight: 700; color: #1F2937; }
@@ -237,7 +239,7 @@ const styles = `
   .chip-input { display: inline-flex; }
   .img-thumb-list { display: flex; gap: 10px; flex-wrap: wrap; }
   .img-thumb { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 2px solid #E5E7EB; cursor: grab; flex-shrink: 0; }
-  .img-thumb.main { border-color: #22C55E; }
+  .img-thumb.is-main { border-color: #22C55E; }
   .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .img-thumb .img-remove { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; line-height: 1; }
   .img-thumb-add { width: 72px; height: 72px; border-radius: 8px; border: 2px dashed #D1D5DB; display: flex; align-items: center; justify-content: center; color: #9CA3AF; cursor: pointer; font-size: 22px; flex-shrink: 0; }

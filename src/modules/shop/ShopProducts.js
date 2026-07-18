@@ -592,7 +592,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="drawer-section-title">{t.sp_photo_section}</div>
             <div className="img-thumb-list">
               {(form.images || []).map((img, i) => (
-                <div key={img + i} className={"img-thumb" + (i === 0 ? " main" : "")}
+                <div key={img + i} className={"img-thumb" + (i === 0 ? " is-main" : "")}
                   draggable onDragStart={() => onImgDragStart(i)} onDragOver={e => e.preventDefault()} onDrop={() => onImgDrop(i)}>
                   <img src={img} alt="" />
                   <button className="img-remove" onClick={() => removeImage(i)}>×</button>

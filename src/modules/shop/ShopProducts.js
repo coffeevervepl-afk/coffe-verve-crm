@@ -430,8 +430,10 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
 
   useEffect(() => {
     let alive = true;
-    supabase.from("shop_products").select("id, name_ru, price_250")
-      .eq("is_active", true).eq("product_type", "single").order("name_ru")
+    // All single products (active or not) — a manager may include an unpublished
+    // sort in a bundle; inactive ones are flagged in the UI.
+    supabase.from("shop_products").select("id, name_ru, price_250, is_active")
+      .eq("product_type", "single").order("name_ru")
       .then(({ data }) => { if (alive) setBundleSingles(data || []); });
     return () => { alive = false; };
   }, []);
@@ -822,6 +824,7 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
                       <input type="checkbox" checked={checked} onChange={() => toggleBundleItem(p.id)} />
                       <span style={{ flex: 1 }}>
                         {p.name_ru} <span style={{ color: "#888" }}>({Number(p.price_250 || 0).toFixed(2)} zł)</span>
+                        {!p.is_active && <span style={{ color: "#9CA3AF" }}> {t.sp_bundle_inactive}</span>}
                       </span>
                       {checked && (
                         <>

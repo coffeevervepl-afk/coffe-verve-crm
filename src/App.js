@@ -2201,6 +2201,42 @@ function Orders({ t, lang }) {
     setTimeout(() => setPrintToast(null), 3000);
   }
 
+  // Bundle header gets its OWN label (composition summary, no QR / passport) —
+  // separate from the per-pack N8N label used by normal orders / children.
+  function printBundleLabel(e, order, children) {
+    e.stopPropagation();
+    const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const name = (order.notes || "").replace(/^Набор:\s*/, "") || "Набор";
+    const rows = (children || [])
+      .map(k => `<li><span>${esc(k.products?.name || "—")}</span><span>${esc(k.weight)}г</span></li>`).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(name)}</title>
+      <style>
+        @page { margin: 8mm; }
+        body { font-family: -apple-system, Arial, sans-serif; color: #1F2937; width: 64mm; margin: 0 auto; }
+        .brand { font-size: 10px; letter-spacing: 3px; color: #8A5A1A; text-align: center; margin-bottom: 2px; }
+        .tag { font-size: 26px; font-weight: 800; letter-spacing: 4px; text-align: center; }
+        .name { font-size: 15px; font-weight: 700; text-align: center; margin: 6px 0 10px; }
+        ul { list-style: none; padding: 0; margin: 0 0 8px; }
+        li { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #E5E7EB; }
+        .row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-top: 6px; }
+        .date { font-size: 10px; color: #6B7280; text-align: center; margin-top: 10px; }
+      </style></head><body>
+        <div class="brand">COFFEE VERVE</div>
+        <div class="tag">НАБОР</div>
+        <div class="name">${esc(name)}</div>
+        <ul>${rows}</ul>
+        <div class="row"><span>Общий вес</span><span>${esc(order.weight)}г</span></div>
+        <div class="row"><span>Цена</span><span>${esc(fmtMoney(order.total))}</span></div>
+        <div class="date">Упаковано: ${esc(fmtDate(order.created_at))}</div>
+      </body></html>`;
+    const w = window.open("", "_blank", "width=420,height=640");
+    if (!w) { setPrintToast(t.print_err); setTimeout(() => setPrintToast(null), 3000); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
+  }
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from("orders").select("*, clients(name, client_code, language), products(name, flavor_notes, flavor_notes_pl, flavor_notes_ua)").order("created_at", { ascending: false });
@@ -2309,7 +2345,9 @@ function Orders({ t, lang }) {
                     </td>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                     <td style={{ whiteSpace: "nowrap", display: "flex", gap: 4 }}>
-                      {!isBundle && (<>
+                      {isBundle ? (
+                        <button className="btn-print" onClick={e => printBundleLabel(e, o, kids)}>🖨</button>
+                      ) : (<>
                         <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button>
                         <button className="btn-print" disabled={printingId === o.id} onClick={e => printLabel(e, o)}>
                           {printingId === o.id ? "..." : "🖨"}
@@ -2324,7 +2362,12 @@ function Orders({ t, lang }) {
                         └ {k.products?.name || "—"} · {k.weight}{t.unit_g} · {grindLabel(k)}
                       </td>
                       <td>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(k)}>QR</button>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(k)}>QR</button>
+                          <button className="btn-print" disabled={printingId === k.id} onClick={e => printLabel(e, k)}>
+                            {printingId === k.id ? "..." : "🖨"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

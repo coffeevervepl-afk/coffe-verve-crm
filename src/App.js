@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import QRCode from "qrcode";
 import { supabase } from "./lib/supabaseClient";
 import { T } from "./lib/i18n";
@@ -1776,7 +1776,7 @@ function ClientDetail({ t, client, onBack, lang }) {
 
   async function fetchOrders() {
     setLoading(true);
-    const { data } = await supabase.from("orders").select("*, products(*)").eq("client_id", client.id).order("created_at", { ascending: false });
+    const { data } = await supabase.from("orders").select("*, products(*)").eq("client_id", client.id).is("parent_order_id", null).order("created_at", { ascending: false });
     setOrders(data || []);
     setLoading(false);
   }
@@ -2170,6 +2170,7 @@ function Orders({ t, lang }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [printingId, setPrintingId] = useState(null);
+  const [expandedBundles, setExpandedBundles] = useState({});
   const [printToast, setPrintToast] = useState(null);
 
   async function printLabel(e, order) {
@@ -2232,7 +2233,12 @@ function Orders({ t, lang }) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
   }
 
+  // Bundle child rows are grouped under their parent — never shown top-level.
+  const childrenByParent = {};
+  orders.forEach(o => { if (o.parent_order_id) { (childrenByParent[o.parent_order_id] = childrenByParent[o.parent_order_id] || []).push(o); } });
+
   const filtered = orders.filter(o => {
+    if (o.parent_order_id) return false;
     const matchStatus = filter === "all" || o.status === filter;
     const matchSearch = !search || o.clients?.name?.toLowerCase().includes(search.toLowerCase()) || o.products?.name?.toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
@@ -2258,8 +2264,15 @@ function Orders({ t, lang }) {
             <table className="table">
               <thead><tr><th>#</th><th>{t.client}</th><th>{t.product}</th><th>{t.weight}</th><th>{t.total}</th><th>{t.status}</th><th>{t.date}</th><th>QR</th></tr></thead>
               <tbody>
-                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">{t.no_data}</td></tr> : filtered.map((o, i) => (
-                  <tr key={o.id}>
+                {filtered.length === 0 ? <tr><td colSpan={8} className="empty-state">{t.no_data}</td></tr> : filtered.map((o, i) => {
+                  const isBundle = o.is_bundle_order;
+                  const kids = isBundle ? (childrenByParent[o.id] || []) : [];
+                  const open = !!expandedBundles[o.id];
+                  const grindLabel = (r) => (r.grind === "whole" ? t.grind_whole : r.grind === "ground" ? t.grind_ground : r.grind)
+                    + (r.grind === "ground" && r.grind_option ? ` (${GRIND_OPTION_RU[r.grind_option] || r.grind_option})` : "");
+                  return (
+                  <Fragment key={o.id}>
+                  <tr>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{filtered.length - i}</td>
                     <td style={{ cursor: "pointer" }} onClick={() => setSelectedOrder(o)}>
                       <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
@@ -2268,14 +2281,19 @@ function Orders({ t, lang }) {
                       </div>
                       <div style={{ fontSize: 11, color: "#4B5563" }}>{o.clients?.client_code}</div>
                     </td>
-                    <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
+                    {isBundle ? (
+                      <td style={{ color: "#374151", cursor: "pointer", fontWeight: 500 }}
+                        onClick={() => setExpandedBundles(p => ({ ...p, [o.id]: !p[o.id] }))}>
+                        <span style={{ marginRight: 6, color: "#9CA3AF" }}>{open ? "▼" : "▶"}</span>
+                        📦 {(o.notes || "").replace(/^Набор:\s*/, "") || "Набор"}
+                      </td>
+                    ) : (
+                      <td style={{ color: "#6B7280" }}>{o.products?.name || "—"}</td>
+                    )}
                     <td style={{ color: "#6B7280" }}>
                       {o.weight}{t.unit_g}
-                      {o.grind && (
-                        <span style={{ color: "#9CA3AF" }}>
-                          {" · "}{o.grind === "whole" ? t.grind_whole : o.grind === "ground" ? t.grind_ground : o.grind}
-                          {o.grind === "ground" && o.grind_option ? ` (${GRIND_OPTION_RU[o.grind_option] || o.grind_option})` : ""}
-                        </span>
+                      {!isBundle && o.grind && (
+                        <span style={{ color: "#9CA3AF" }}>{" · "}{grindLabel(o)}</span>
                       )}
                     </td>
                     <td style={{ color: "#16A34A", fontWeight: 600 }}>{fmtMoney(o.total)}</td>
@@ -2297,7 +2315,17 @@ function Orders({ t, lang }) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  {isBundle && open && kids.map(k => (
+                    <tr key={k.id} style={{ background: "#FAFAFA" }}>
+                      <td></td><td></td>
+                      <td colSpan={6} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
+                        └ {k.products?.name || "—"} · {k.weight}{t.unit_g} · {grindLabel(k)}
+                      </td>
+                    </tr>
+                  ))}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

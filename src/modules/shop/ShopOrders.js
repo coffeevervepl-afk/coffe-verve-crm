@@ -139,7 +139,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("shop_orders")
-      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total, grind, grind_option), shop_users(telegram)")
+      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total, grind, grind_option, shop_product_id), shop_users(telegram)")
       .order("created_at", { ascending: false });
     if (error) showToast(t.prod_err_load_orders + error.message);
     setOrders(data || []);
@@ -297,6 +297,7 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
   const [tracking, setTracking] = useState(order.tracking_number || "");
   const [savingTracking, setSavingTracking] = useState(false);
   const [promo, setPromo] = useState(null);
+  const [bundleMap, setBundleMap] = useState({}); // shop_product_id -> { isBundle, items:[{name,weight}] }
   const [refunding, setRefunding] = useState(false);
   const STATUS_LABELS = getStatusLabels(t);
   const PAYMENT_LABELS = getPaymentLabels(t);
@@ -312,6 +313,28 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
       });
     return () => { cancelled = true; };
   }, [order.id, onError, t]);
+
+  // Pull composition for any bundle product in this order (name + weight per sort).
+  useEffect(() => {
+    let cancelled = false;
+    const ids = [...new Set((order.shop_order_items || []).map(it => it.shop_product_id).filter(Boolean))];
+    if (ids.length === 0) { setBundleMap({}); return; }
+    supabase.from("shop_products")
+      .select("id, product_type, bundle_items:shop_bundle_items!shop_bundle_items_bundle_id_fkey(weight, component:shop_products!shop_bundle_items_product_id_fkey(name_ru))")
+      .in("id", ids)
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        const m = {};
+        (data || []).forEach(p => {
+          m[p.id] = {
+            isBundle: p.product_type === "bundle",
+            items: (p.bundle_items || []).map(bi => ({ name: bi.component?.name_ru || "—", weight: bi.weight })),
+          };
+        });
+        setBundleMap(m);
+      });
+    return () => { cancelled = true; };
+  }, [order.id]);
 
   async function saveTracking() {
     setSavingTracking(true);
@@ -365,15 +388,30 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
 
           <div className="drawer-section">
             <div className="drawer-section-title">{t.so_composition_col}</div>
-            {(order.shop_order_items || []).map((it, i) => (
+            {(order.shop_order_items || []).map((it, i) => {
+              const comp = bundleMap[it.shop_product_id];
+              const isBundle = comp?.isBundle && comp.items.length > 0;
+              const totalW = isBundle ? comp.items.reduce((s, c) => s + (Number(c.weight) || 0), 0) : it.weight;
+              return (
               <div key={i} style={{ padding: "9px 0", borderBottom: "1px solid #F3F4F6" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                  <span className="detail-label">{it.product_name} {it.weight}{t.unit_g} ×{it.quantity}</span>
+                  <span className="detail-label">{isBundle ? "📦 " : ""}{it.product_name} {totalW}{t.unit_g} ×{it.quantity}</span>
                   <span className="detail-value">{fmtMoney(it.line_total)}</span>
                 </div>
-                <GrindBadge item={it} />
+                {isBundle ? (
+                  <div style={{ marginTop: 4 }}>
+                    {comp.items.map((c, ci) => (
+                      <div key={ci} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
+                        └ {c.name} · {c.weight}{t.unit_g} · {grindInfo(it).label}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <GrindBadge item={it} />
+                )}
               </div>
-            ))}
+              );
+            })}
             {promo?.shop_promo_codes?.code && (
               <div className="detail-row">
                 <span className="detail-label">{t.promo_code}</span>

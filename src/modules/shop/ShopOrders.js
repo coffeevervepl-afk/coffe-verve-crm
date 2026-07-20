@@ -139,7 +139,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("shop_orders")
-      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total, grind, grind_option, shop_product_id), shop_users(telegram)")
+      .select("*, shop_order_items(product_name, weight, quantity, unit_price, line_total, grind, grind_option, shop_product_id, custom_bundle_group), shop_users(telegram)")
       .order("created_at", { ascending: false });
     if (error) showToast(t.prod_err_load_orders + error.message);
     setOrders(data || []);
@@ -388,30 +388,61 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
 
           <div className="drawer-section">
             <div className="drawer-section-title">{t.so_composition_col}</div>
-            {(order.shop_order_items || []).map((it, i) => {
-              const comp = bundleMap[it.shop_product_id];
-              const isBundle = comp?.isBundle && comp.items.length > 0;
-              const totalW = isBundle ? comp.items.reduce((s, c) => s + (Number(c.weight) || 0), 0) : it.weight;
-              return (
-              <div key={i} style={{ padding: "9px 0", borderBottom: "1px solid #F3F4F6" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                  <span className="detail-label">{isBundle ? "📦 " : ""}{it.product_name} {totalW}{t.unit_g} ×{it.quantity}</span>
-                  <span className="detail-value">{fmtMoney(it.line_total)}</span>
-                </div>
-                {isBundle ? (
-                  <div style={{ marginTop: 4 }}>
-                    {comp.items.map((c, ci) => (
-                      <div key={ci} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
-                        └ {c.name} · {c.weight}{t.unit_g} · {grindInfo(it).label}
+            {(() => {
+              const customGroups = {};
+              const regular = [];
+              (order.shop_order_items || []).forEach(it => {
+                if (it.custom_bundle_group) {
+                  (customGroups[it.custom_bundle_group] = customGroups[it.custom_bundle_group] || []).push(it);
+                } else { regular.push(it); }
+              });
+              const rows = [];
+              regular.forEach((it, i) => {
+                const comp = bundleMap[it.shop_product_id];
+                const isBundle = comp?.isBundle && comp.items.length > 0;
+                const totalW = isBundle ? comp.items.reduce((s, c) => s + (Number(c.weight) || 0), 0) : it.weight;
+                rows.push(
+                  <div key={"r" + i} style={{ padding: "9px 0", borderBottom: "1px solid #F3F4F6" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                      <span className="detail-label">{isBundle ? "📦 " : ""}{it.product_name} {totalW}{t.unit_g} ×{it.quantity}</span>
+                      <span className="detail-value">{fmtMoney(it.line_total)}</span>
+                    </div>
+                    {isBundle ? (
+                      <div style={{ marginTop: 4 }}>
+                        {comp.items.map((c, ci) => (
+                          <div key={ci} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
+                            └ {c.name} · {c.weight}{t.unit_g} · {grindInfo(it).label}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <GrindBadge item={it} />
+                    )}
                   </div>
-                ) : (
-                  <GrindBadge item={it} />
-                )}
-              </div>
-              );
-            })}
+                );
+              });
+              Object.keys(customGroups).forEach(gid => {
+                const its = customGroups[gid];
+                const totalW = its.reduce((s, x) => s + (Number(x.weight) || 0), 0);
+                const totalP = its.reduce((s, x) => s + (Number(x.line_total) || 0), 0);
+                rows.push(
+                  <div key={"c" + gid} style={{ padding: "9px 0", borderBottom: "1px solid #F3F4F6" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                      <span className="detail-label">📦 {t.so_custom_bundle} {totalW}{t.unit_g}</span>
+                      <span className="detail-value">{fmtMoney(totalP)}</span>
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      {its.map((x, xi) => (
+                        <div key={xi} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
+                          └ {x.product_name} · {x.weight}{t.unit_g} · {grindInfo(x).label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+              return rows;
+            })()}
             {promo?.shop_promo_codes?.code && (
               <div className="detail-row">
                 <span className="detail-label">{t.promo_code}</span>

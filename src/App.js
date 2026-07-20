@@ -2309,17 +2309,22 @@ function Orders({ t, lang }) {
                     </td>
                     <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                     <td style={{ whiteSpace: "nowrap", display: "flex", gap: 4 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button>
-                      <button className="btn-print" disabled={printingId === o.id} onClick={e => printLabel(e, o)}>
-                        {printingId === o.id ? "..." : "🖨"}
-                      </button>
+                      {!isBundle && (<>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(o)}>QR</button>
+                        <button className="btn-print" disabled={printingId === o.id} onClick={e => printLabel(e, o)}>
+                          {printingId === o.id ? "..." : "🖨"}
+                        </button>
+                      </>)}
                     </td>
                   </tr>
                   {isBundle && open && kids.map(k => (
                     <tr key={k.id} style={{ background: "#FAFAFA" }}>
                       <td></td><td></td>
-                      <td colSpan={6} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
+                      <td colSpan={5} style={{ paddingLeft: 24, fontSize: 13, color: "#6E6D68" }}>
                         └ {k.products?.name || "—"} · {k.weight}{t.unit_g} · {grindLabel(k)}
+                      </td>
+                      <td>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedOrder(k)}>QR</button>
                       </td>
                     </tr>
                   ))}

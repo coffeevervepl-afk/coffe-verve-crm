@@ -188,13 +188,33 @@ export default function ShopProducts({ lang }) {
     reordered.forEach((p, i) => { p.sort_order = i; });
   }
 
+  async function createBundle() {
+    const { data: last } = await supabase.from("shop_products").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+    const nextSortOrder = last?.[0] ? last[0].sort_order + 1 : 0;
+    const { data, error } = await supabase.from("shop_products").insert([{
+      slug: `nabor-${Date.now()}`,
+      name_ru: "Новый набор", name_pl: "Nowy zestaw", name_ua: "Новий набір",
+      product_type: "bundle",
+      price_250: 0,
+      is_active: false,
+      stock_status: "in_stock",
+      sort_order: nextSortOrder,
+    }]).select().single();
+    if (error) { showToast(t.sp_err_add_product + error.message); return; }
+    fetchProducts();
+    setSelected(data);
+  }
+
   const filtered = products.filter(p => !search || p.name_ru?.toLowerCase().includes(search.toLowerCase()) || p.slug?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
       <div className="topbar">
         <span className="topbar-title">{t.nav_shop_products} ({products.length})</span>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAddFromCrm(true)}>{t.sp_add_from_crm_btn}</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddFromCrm(true)}>{t.sp_add_from_crm_btn}</button>
+          <button className="btn btn-secondary btn-sm" onClick={createBundle}>+ {t.sp_create_bundle_btn}</button>
+        </div>
       </div>
       <div className="content">
         <input className="search-bar" placeholder={t.sp_search_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
@@ -797,29 +817,11 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
           </div>
 
           <div className="drawer-section">
-            <div className="drawer-section-title">{t.sp_ptype_label}</div>
-            {!product.id ? (
-              // New product only: type is selectable.
-              <div style={{ display: "flex", gap: 8 }}>
-                {[["single", t.sp_type_single], ["bundle", t.sp_type_bundle]].map(([val, label]) => {
-                  const active = (form.product_type || "single") === val;
-                  return (
-                    <button type="button" key={val} onClick={() => saveFields({ product_type: val })}
-                      style={{ flex: 1, padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 600,
-                        border: active ? "1px solid #3A2115" : "1px solid #D1D5DB",
-                        background: active ? "#3A2115" : "#fff", color: active ? "#fff" : "#374151" }}>
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              // Existing product: read-only to prevent accidental type changes
-              // (which would null the price/1kg and drop data).
-              <div style={{ fontWeight: 600, color: "#374151" }}>
-                {form.product_type === "bundle" ? t.sp_type_bundle : t.sp_type_single}
-              </div>
-            )}
+            {/* Type is fixed at creation (via the list buttons) and never toggled
+                here — prevents accidentally converting a product and nulling its price. */}
+            <div style={{ fontSize: 13, color: "#6B7280", fontWeight: 600 }}>
+              {t.sp_ptype_label}: {form.product_type === "bundle" ? t.sp_type_bundle : t.sp_type_single}
+            </div>
           </div>
 
           {form.product_type === "bundle" && (

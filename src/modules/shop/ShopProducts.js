@@ -78,7 +78,7 @@ function isPublishable(p) {
 }
 
 const EDITABLE_FIELD_KEYS = [
-  "name_ru", "slug", "origin", "altitude", "process", "roast_level",
+  "name_ru", "name_pl", "name_ua", "slug", "origin", "altitude", "process", "roast_level",
   "flavor_notes_ru", "flavor_notes_pl", "flavor_notes_ua",
   "price_250", "price_500", "price_1000", "old_price_250", "old_price_500", "old_price_1000",
   "description_ru", "description_pl", "description_ua", "seo_title", "seo_description",
@@ -649,6 +649,14 @@ function ProductDrawer({ t, product, onClose, onUpdated, onError }) {
             <div className="form-group">
               <label className="form-label">{t.sp_name_ru_label}</label>
               <input className="input" value={form.name_ru || ""} onChange={e => setForm({ ...form, name_ru: e.target.value })} onBlur={() => saveFields({ name_ru: form.name_ru })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.sp_name_pl_label}</label>
+              <input className="input" value={form.name_pl || ""} onChange={e => setForm({ ...form, name_pl: e.target.value })} onBlur={() => saveFields({ name_pl: form.name_pl })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t.sp_name_ua_label}</label>
+              <input className="input" value={form.name_ua || ""} onChange={e => setForm({ ...form, name_ua: e.target.value })} onBlur={() => saveFields({ name_ua: form.name_ua })} />
             </div>
             <div className="form-group">
               <label className="form-label">{t.sp_slug_label}</label>

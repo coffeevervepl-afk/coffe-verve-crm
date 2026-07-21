@@ -2476,19 +2476,15 @@ function Products({ t, lang }) {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditing(null)}>
           <div className="modal">
             <div className="modal-title">{isNew ? `+ ${t.add} ${t.products}` : editing.name}</div>
-            {isNew && (
-              <>
-                <div className="form-row">
-                  <div className="form-group"><label className="form-label">{t.product_code_label} *</label><input className="input" placeholder="CV-013" value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" placeholder="Kenya AA" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group"><label className="form-label">{t.country}</label><input className="input" placeholder={t.example_country} value={editing.country} onChange={e => setEditing({ ...editing, country: e.target.value })} /></div>
-                  <div className="form-group"><label className="form-label">{t.purpose}</label><input className="input" value={editing.purpose} onChange={e => setEditing({ ...editing, purpose: e.target.value })} /></div>
-                </div>
-                <div className="form-group"><label className="form-label">{t.flavor_notes}</label><input className="input" placeholder={t.example_flavor_notes} value={editing.flavor_notes} onChange={e => setEditing({ ...editing, flavor_notes: e.target.value })} /></div>
-              </>
-            )}
+            <div className="form-row">
+              <div className="form-group"><label className="form-label">{t.product_code_label} *</label><input className="input" placeholder="CV-013" value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">{t.name} *</label><input className="input" placeholder="Kenya AA" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
+            </div>
+            <div className="form-row">
+              <div className="form-group"><label className="form-label">{t.country}</label><input className="input" placeholder={t.example_country} value={editing.country} onChange={e => setEditing({ ...editing, country: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">{t.purpose}</label><input className="input" value={editing.purpose} onChange={e => setEditing({ ...editing, purpose: e.target.value })} /></div>
+            </div>
+            <div className="form-group"><label className="form-label">{t.flavor_notes}</label><input className="input" placeholder={t.example_flavor_notes} value={editing.flavor_notes} onChange={e => setEditing({ ...editing, flavor_notes: e.target.value })} /></div>
             <div className="form-row">
               <div className="form-group"><label className="form-label">{t.price_250}</label><input type="number" className="input" value={editing.price_250 || ""} onChange={e => setEditing({ ...editing, price_250: e.target.value })} /></div>
               <div className="form-group"><label className="form-label">{t.price_500}</label><input type="number" className="input" value={editing.price_500 || ""} onChange={e => setEditing({ ...editing, price_500: e.target.value })} /></div>

@@ -236,141 +236,15 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
   );
 }
 
-// ── New subscription modal ──────────────────────────────────────────────────
-function NewModal({ t, clients, onClose, onCreated }) {
-  const [search, setSearch] = useState("");
-  const [client, setClient] = useState(null);
-  const [products, setProducts] = useState([]);
-  const [draft, setDraft] = useState([]); // { product, weight, grind, qty }
-  const [weeks, setWeeks] = useState(4);
-  const [firstDate, setFirstDate] = useState(TOMORROW);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabase.from("shop_products").select("id, name_ru, price_250, price_500, price_1000")
-      .eq("is_active", true).eq("product_type", "single").order("name_ru")
-      .then(({ data }) => setProducts(data || []));
-  }, []);
-
-  const priceZl = (p, w) => w === 500 ? Number(p.price_500 ?? p.price_250 * 2)
-    : w === 1000 ? Number(p.price_1000 ?? p.price_250 * 4) : Number(p.price_250);
-
-  const addProduct = (p) => setDraft(d => d.some(x => x.product.id === p.id) ? d
-    : [...d, { product: p, weight: 250, grind: "beans", qty: 1 }]);
-  const patchDraft = (id, patch) => setDraft(d => d.map(x => x.product.id === id ? { ...x, ...patch } : x));
-  const removeDraft = (id) => setDraft(d => d.filter(x => x.product.id !== id));
-
-  const shown = clients.filter(c => {
-    const q = search.trim().toLowerCase();
-    return !q || (c.name || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
-  }).slice(0, 8);
-
-  async function create() {
-    if (!client || draft.length === 0) return;
-    setSaving(true);
-    const items = draft.map(d => ({
-      product_id: d.product.id, name: d.product.name_ru,
-      weight: d.weight, grind: d.grind, quantity: d.qty,
-      price: Math.round(priceZl(d.product, d.weight) * 100),
-    }));
-    const { error } = await supabase.from("subscriptions").insert({
-      user_id: client.auth_user_id, status: "active", items,
-      interval_weeks: Number(weeks), next_delivery_date: firstDate,
-      discount_percent: 5, payment_method: "manual",
-    });
-    setSaving(false);
-    if (!error) onCreated();
-  }
-
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 640 }}>
-        <div className="modal-title">{t.sub_new_title}</div>
-
-        <div className="form-group">
-          <label className="form-label">{t.sub_pick_client}</label>
-          {client ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 600 }}>{client.name || client.email}</span>
-              <button className="btn btn-secondary btn-sm" onClick={() => setClient(null)}>✕</button>
-            </div>
-          ) : (
-            <>
-              <input className="input" placeholder={t.sub_search_client} value={search} onChange={e => setSearch(e.target.value)} />
-              <div style={{ marginTop: 6 }}>
-                {shown.map(c => (
-                  <div key={c.id} style={{ padding: "6px 8px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #F3F4F6" }}
-                    onClick={() => setClient(c)}>
-                    {c.name || "—"} <span style={{ color: GREY }}>{c.email}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="drawer-section-title" style={{ marginTop: 10 }}>{t.sub_add_products}</div>
-        <select className="input" value="" onChange={e => { const p = products.find(x => x.id === e.target.value); if (p) addProduct(p); }} style={{ maxWidth: 320 }}>
-          <option value="">+ {t.sub_add}…</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.name_ru}</option>)}
-        </select>
-
-        {draft.length === 0 ? (
-          <div style={{ color: GREY, fontSize: 13, marginTop: 8 }}>{t.sub_no_items}</div>
-        ) : (
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-            {draft.map(d => (
-              <div key={d.product.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", border: "1px solid #E5E7EB", borderRadius: 8, padding: 8 }}>
-                <span style={{ minWidth: 120, flex: 1, fontSize: 13, fontWeight: 500 }}>{d.product.name_ru}</span>
-                <select className="input" value={d.weight} onChange={e => patchDraft(d.product.id, { weight: Number(e.target.value) })} style={{ width: 90 }}>
-                  <option value={250}>250г</option><option value={500}>500г</option><option value={1000}>1кг</option>
-                </select>
-                <select className="input" value={d.grind} onChange={e => patchDraft(d.product.id, { grind: e.target.value })} style={{ width: 130 }}>
-                  <option value="beans">{t.sub_grind_beans}</option><option value="ground">{t.sub_grind_ground}</option>
-                </select>
-                <input className="input" type="number" min="1" value={d.qty} onChange={e => patchDraft(d.product.id, { qty: Math.max(1, Number(e.target.value)) })} style={{ width: 70 }} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtMoney(Math.round(priceZl(d.product, d.weight) * 100) * d.qty)}</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => removeDraft(d.product.id)}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="form-row" style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
-          <div className="form-group">
-            <label className="form-label">{t.sub_interval}</label>
-            <input className="input" type="number" min="1" max="8" value={weeks} onChange={e => setWeeks(e.target.value)} style={{ width: 90 }} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t.sub_first_date}</label>
-            <input className="input" type="date" value={firstDate} onChange={e => setFirstDate(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t.sub_payment_method}</label>
-            <select className="input" value="manual" disabled style={{ maxWidth: 200 }}><option value="manual">{t.sub_pay_manual}</option></select>
-          </div>
-        </div>
-
-        <div className="modal-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
-          <button className="btn btn-secondary" onClick={onClose}>{t.sub_close}</button>
-          <button className="btn btn-primary" disabled={saving || !client || draft.length === 0} onClick={create}>{t.sub_create}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main section ────────────────────────────────────────────────────────────
 export default function Subscriptions({ lang, openId, onOpenHandled }) {
   const t = T[lang];
   const [subs, setSubs] = useState([]);
   const [users, setUsers] = useState({});
-  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusF, setStatusF] = useState("all");
   const [payF, setPayF] = useState("all");
   const [detail, setDetail] = useState(null);
-  const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -382,7 +256,6 @@ export default function Subscriptions({ lang, openId, onOpenHandled }) {
     const map = {};
     (u || []).forEach(x => { if (x.auth_user_id) map[x.auth_user_id] = x; });
     setUsers(map);
-    setClients((u || []).filter(x => x.auth_user_id));
     setLoading(false);
   }, []);
 
@@ -422,7 +295,6 @@ export default function Subscriptions({ lang, openId, onOpenHandled }) {
             <option value="przelewy24_card">{t.sub_pay_card}</option>
             <option value="przelewy24_blik">{t.sub_pay_blik}</option>
           </select>
-          <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setShowNew(true)}>{t.sub_new}</button>
         </div>
 
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -465,11 +337,6 @@ export default function Subscriptions({ lang, openId, onOpenHandled }) {
             setDetail(d => d ? { ...d, ...fields } : d);
             setSubs(prev => prev.map(x => x.id === detail.id ? { ...x, ...fields } : x));
           }} />
-      )}
-      {showNew && (
-        <NewModal t={t} clients={clients}
-          onClose={() => setShowNew(false)}
-          onCreated={() => { setShowNew(false); load(); }} />
       )}
     </div>
   );

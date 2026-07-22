@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { T } from "../../lib/i18n";
 
-// Brand palette for this section: dark brown + grey + white only (no green/amber/red).
-const BROWN = "#412618";
-const BROWN_DARK = "#3A2115";
+// CRM palette (matches the rest of the CRM, not the shop's brown theme).
 const GREY = "#6B7280";
 
 const tpl = (str, vars) => Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
@@ -23,27 +21,30 @@ const ymd = (d) => {
 const TODAY = ymd(new Date());
 const TOMORROW = ymd(new Date(Date.now() + 86400000));
 
-// ── Badges (inline-styled, brand colours) ──────────────────────────────────
-const pill = (extra) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, ...extra });
-const solidBrown = pill({ background: BROWN, color: "#fff" });
-const outlineBrown = pill({ background: "transparent", color: BROWN, border: `1px solid ${BROWN}` });
-const greyPill = pill({ background: "#F0F2F5", color: GREY });
+// ── Badges — soft-pill style copied from the CRM shop-orders STATUS_PILL ─────
+const pill = (bg, color, border) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: bg, color, border: `1px solid ${border}` });
+const PILL = {
+  green: pill("#F0FDF4", "#15803D", "#BBF7D0"),
+  amber: pill("#FFFBEB", "#B45309", "#FDE68A"),
+  blue:  pill("#EFF6FF", "#1D4ED8", "#BFDBFE"),
+  grey:  pill("#F3F4F6", "#6B7280", "#E5E7EB"),
+};
 
 function PayBadge({ method, t }) {
-  if (method === "przelewy24_card") return <span style={solidBrown}>{t.sub_pay_card}</span>;
-  if (method === "przelewy24_blik") return <span style={solidBrown}>{t.sub_pay_blik}</span>;
-  return <span style={greyPill}>{t.sub_pay_manual}</span>;
+  if (method === "przelewy24_card") return <span style={PILL.blue}>{t.sub_pay_card}</span>;
+  if (method === "przelewy24_blik") return <span style={PILL.blue}>{t.sub_pay_blik}</span>;
+  return <span style={PILL.grey}>{t.sub_pay_manual}</span>;
 }
 function StatusBadge({ status, t }) {
-  if (status === "active") return <span style={solidBrown}>{t.sub_status_active}</span>;
-  if (status === "paused") return <span style={outlineBrown}>{t.sub_status_paused}</span>;
-  return <span style={greyPill}>{t.sub_status_cancelled}</span>;
+  if (status === "active") return <span style={PILL.green}>{t.sub_status_active}</span>;
+  if (status === "paused") return <span style={PILL.amber}>{t.sub_status_paused}</span>;
+  return <span style={PILL.grey}>{t.sub_status_cancelled}</span>;
 }
 function NextBadge({ date, t }) {
   if (!date) return <span>—</span>;
   const d = ymd(date);
-  if (d < TODAY) return <span style={solidBrown}>{t.sub_overdue} · {fmtDate(date)}</span>;
-  if (d === TODAY || d === TOMORROW) return <span style={solidBrown}>{t.sub_tomorrow} · {fmtDate(date)}</span>;
+  if (d < TODAY) return <span style={PILL.amber}>{t.sub_overdue} · {fmtDate(date)}</span>;
+  if (d === TODAY || d === TOMORROW) return <span style={PILL.blue}>{t.sub_tomorrow} · {fmtDate(date)}</span>;
   return <span>{fmtDate(date)}</span>;
 }
 
@@ -85,16 +86,16 @@ export function SubscriptionWidget({ t, setPage }) {
 
   return (
     <div className="card" style={{ cursor: "pointer" }} onClick={() => setPage && setPage("shop_subscriptions")}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: "#1F2937", marginBottom: 10 }}>{t.sub_widget_title}</div>
+      <div className="card-title">{t.sub_widget_title}</div>
       {empty ? (
         <div style={{ color: GREY, fontSize: 13 }}>{t.sub_widget_empty}</div>
       ) : (
         <div onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: BROWN, textTransform: "uppercase", letterSpacing: "0.05em", margin: "4px 0 2px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.05em", margin: "4px 0 2px" }}>
             {t.sub_widget_tomorrow} ({tomorrow.length})
           </div>
           {tomorrow.map(s => <Row key={s.id} s={s} />)}
-          <div style={{ fontSize: 12, fontWeight: 700, color: BROWN, textTransform: "uppercase", letterSpacing: "0.05em", margin: "10px 0 2px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#B45309", textTransform: "uppercase", letterSpacing: "0.05em", margin: "10px 0 2px" }}>
             {t.sub_widget_overdue} ({overdue.length})
           </div>
           {overdue.map(s => <Row key={s.id} s={s} />)}
@@ -165,7 +166,7 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
           </div>
           <div className="form-group">
             <label className="form-label">{t.sub_discount}</label>
-            <div style={{ paddingTop: 8, fontSize: 13, fontWeight: 600, color: BROWN_DARK }}>
+            <div style={{ paddingTop: 8, fontSize: 13, fontWeight: 600, color: "#1F2937" }}>
               {tpl(t.sub_discount_line, { card: cardPct, total: 5 + cardPct })}
             </div>
           </div>
@@ -180,7 +181,7 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
           </select>
         </div>
         <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: 14, marginTop: 6 }}>
-          <div style={{ fontWeight: 700, color: BROWN_DARK, fontSize: 13 }}>{t.sub_autopay_off_title}</div>
+          <div style={{ fontWeight: 700, color: "#1F2937", fontSize: 13 }}>{t.sub_autopay_off_title}</div>
           <div style={{ color: GREY, fontSize: 12, marginTop: 4 }}>{t.sub_autopay_off_text}</div>
         </div>
 
@@ -209,7 +210,7 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
           {sub.status === "active" && <button className="btn btn-secondary" disabled={saving} onClick={pause}>{t.sub_pause}</button>}
           {sub.status === "paused" && <button className="btn btn-secondary" disabled={saving} onClick={resume}>{t.sub_resume}</button>}
           {sub.status !== "cancelled" && <button className="btn btn-secondary" disabled={saving} onClick={cancel}>{t.sub_cancel}</button>}
-          <button className="btn btn-primary" style={{ background: BROWN }} onClick={onClose}>{t.sub_close}</button>
+          <button className="btn btn-primary" onClick={onClose}>{t.sub_close}</button>
         </div>
       </div>
     </div>
@@ -333,7 +334,7 @@ function NewModal({ t, clients, onClose, onCreated }) {
 
         <div className="modal-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
           <button className="btn btn-secondary" onClick={onClose}>{t.sub_close}</button>
-          <button className="btn btn-primary" style={{ background: BROWN }} disabled={saving || !client || draft.length === 0} onClick={create}>{t.sub_create}</button>
+          <button className="btn btn-primary" disabled={saving || !client || draft.length === 0} onClick={create}>{t.sub_create}</button>
         </div>
       </div>
     </div>
@@ -395,7 +396,7 @@ export default function Subscriptions({ lang }) {
             <option value="przelewy24_card">{t.sub_pay_card}</option>
             <option value="przelewy24_blik">{t.sub_pay_blik}</option>
           </select>
-          <button className="btn btn-primary" style={{ background: BROWN, marginLeft: "auto" }} onClick={() => setShowNew(true)}>{t.sub_new}</button>
+          <button className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setShowNew(true)}>{t.sub_new}</button>
         </div>
 
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>

@@ -123,6 +123,11 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
 
   const cardPct = Number(user?.discount_pct || 0);
 
+  async function updateDelivery(delId, fields) {
+    const { error } = await supabase.from("subscription_deliveries").update(fields).eq("id", delId);
+    if (!error) setDeliveries(prev => prev.map(x => x.id === delId ? { ...x, ...fields } : x));
+  }
+
   async function patch(fields) {
     setSaving(true);
     const { error } = await supabase.from("subscriptions").update(fields).eq("id", sub.id);
@@ -191,13 +196,27 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
           <div style={{ color: GREY, fontSize: 13 }}>{t.sub_no_deliveries}</div>
         ) : (
           <table className="table">
-            <thead><tr><th>{t.sub_dcol_date}</th><th>{t.sub_dcol_amount}</th><th>{t.sub_dcol_status}</th><th>{t.sub_dcol_payment}</th><th>{t.sub_dcol_order}</th></tr></thead>
+            <thead><tr><th>{t.sub_dcol_date}</th><th>{t.sub_dcol_amount}</th><th>{t.sub_dcol_status}</th><th>{t.sd_tracking}</th><th>{t.sub_dcol_payment}</th><th>{t.sub_dcol_order}</th></tr></thead>
             <tbody>
               {deliveries.map(d => (
                 <tr key={d.id}>
                   <td>{fmtDate(d.scheduled_date)}</td>
                   <td>{fmtMoney(d.amount)}</td>
-                  <td>{d.status}</td>
+                  <td>
+                    <select className="input" style={{ padding: "4px 6px", fontSize: 12, height: "auto", minWidth: 130 }}
+                      value={d.status} onChange={e => updateDelivery(d.id, { status: e.target.value })}>
+                      <option value="pending">{t.sd_pending}</option>
+                      <option value="processing">{t.sd_processing}</option>
+                      <option value="shipped">{t.sd_shipped}</option>
+                      <option value="delivered">{t.sd_delivered}</option>
+                      <option value="cancelled">{t.sd_cancelled}</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="input" style={{ padding: "4px 6px", fontSize: 12, height: "auto", width: 120 }}
+                      defaultValue={d.tracking_number || ""} placeholder={t.sd_tracking}
+                      onBlur={e => { const v = e.target.value.trim(); if (v !== (d.tracking_number || "")) updateDelivery(d.id, { tracking_number: v || null }); }} />
+                  </td>
                   <td>{d.payment_status}</td>
                   <td>{d.order_id ? d.order_id.slice(0, 8) : "—"}</td>
                 </tr>

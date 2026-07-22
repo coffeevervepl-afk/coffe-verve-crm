@@ -393,7 +393,7 @@ export default function Subscriptions({ lang, openId, onOpenHandled }) {
     if (!openId || subs.length === 0) return;
     const found = subs.find(s => s.id === openId);
     if (found) { setDetail(found); if (onOpenHandled) onOpenHandled(); }
-  }, [openId, subs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [openId, subs]); // eslint-disable-line
 
   const clientOf = (uid) => users[uid] || null;
   const clientName = (uid) => users[uid]?.name || users[uid]?.email || (uid ? uid.slice(0, 8) : "—");

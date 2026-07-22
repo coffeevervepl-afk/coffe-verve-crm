@@ -626,6 +626,7 @@ function CRMApp({ session }) {
   const seenOrderIds = useRef(null);
   const orderSound = useOrderSound();
   const [openShopOrderId, setOpenShopOrderId] = useState(null);
+  const [openSubscriptionId, setOpenSubscriptionId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const t = T[lang];
@@ -885,8 +886,8 @@ function CRMApp({ session }) {
         {page === "products" && <Products t={t} lang={lang} />}
         {page === "warranties" && <Warranties t={t} />}
         {page === "staff" && <Staff t={t} currentUser={currentUser} />}
-        {page === "shop_orders" && <ShopOrders lang={lang} openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} />}
-        {page === "shop_subscriptions" && <Subscriptions lang={lang} />}
+        {page === "shop_orders" && <ShopOrders lang={lang} openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} onOpenSubscription={(id) => { setOpenSubscriptionId(id); setPage("shop_subscriptions"); }} />}
+        {page === "shop_subscriptions" && <Subscriptions lang={lang} openId={openSubscriptionId} onOpenHandled={() => setOpenSubscriptionId(null)} />}
         {page === "shop_products" && <ShopProducts lang={lang} />}
         {page === "reviews" && <ShopReviews lang={lang} />}
         {page === "discounts" && <ShopPromoCodes lang={lang} />}

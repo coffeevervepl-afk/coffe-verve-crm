@@ -361,7 +361,7 @@ function NewModal({ t, clients, onClose, onCreated }) {
 }
 
 // ── Main section ────────────────────────────────────────────────────────────
-export default function Subscriptions({ lang }) {
+export default function Subscriptions({ lang, openId, onOpenHandled }) {
   const t = T[lang];
   const [subs, setSubs] = useState([]);
   const [users, setUsers] = useState({});
@@ -387,6 +387,13 @@ export default function Subscriptions({ lang }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link: open a specific subscription (e.g. from a shop-order badge).
+  useEffect(() => {
+    if (!openId || subs.length === 0) return;
+    const found = subs.find(s => s.id === openId);
+    if (found) { setDetail(found); if (onOpenHandled) onOpenHandled(); }
+  }, [openId, subs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const clientOf = (uid) => users[uid] || null;
   const clientName = (uid) => users[uid]?.name || users[uid]?.email || (uid ? uid.slice(0, 8) : "—");

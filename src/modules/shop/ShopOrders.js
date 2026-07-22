@@ -117,7 +117,7 @@ function compositionSummary(items, t) {
   return { short: shortText, full };
 }
 
-export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
+export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled, onOpenSubscription }) {
   const t = T[lang];
   const TABS = getTabs(t);
   const STATUS_LABELS = getStatusLabels(t);
@@ -127,6 +127,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [contactOrder, setContactOrder] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -174,7 +175,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
     const q = search.toLowerCase();
     return o.customer_name?.toLowerCase().includes(q) || o.customer_email?.toLowerCase().includes(q) || String(o.order_number).includes(q);
   };
-  const filtered = orders.filter(o => activeTab.match(o) && bySearch(o));
+  const filtered = orders.filter(o => activeTab.match(o) && bySearch(o) && (sourceFilter === "all" || (o.source || "manual") === sourceFilter));
 
   return (
     <div>
@@ -187,6 +188,11 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
             <button key={tb.key} className={"btn btn-sm " + (tab === tb.key ? "btn-primary" : "btn-secondary")} onClick={() => setTab(tb.key)}>
               {tb.label} ({orders.filter(tb.match).length})
             </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          {[["all", t.so_src_all], ["manual", t.so_src_manual], ["subscription", t.so_src_subscription], ["bundle", t.so_src_bundle]].map(([k, label]) => (
+            <button key={k} className={"btn btn-sm " + (sourceFilter === k ? "btn-primary" : "btn-secondary")} onClick={() => setSourceFilter(k)}>{label}</button>
           ))}
         </div>
         <input className="search-bar" placeholder={t.so_search_placeholder} value={search} onChange={e => setSearch(e.target.value)} />
@@ -204,7 +210,22 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
                   const comp = compositionSummary(o.shop_order_items, t);
                   return (
                     <tr key={o.id}>
-                      <td style={{ color: "#4B5563", fontSize: 12 }}>{o.order_number}</td>
+                      <td style={{ color: "#4B5563", fontSize: 12 }}>
+                        {o.order_number}
+                        {o.source === "subscription" && (
+                          <div style={{ marginTop: 3 }}>
+                            <span onClick={e => { e.stopPropagation(); if (onOpenSubscription && o.subscription_id) onOpenSubscription(o.subscription_id); }}
+                              style={{ cursor: "pointer", display: "inline-block", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                              {t.so_src_subscription}
+                            </span>
+                          </div>
+                        )}
+                        {o.source === "bundle" && (
+                          <div style={{ marginTop: 3 }}>
+                            <span style={{ display: "inline-block", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB" }}>{t.so_src_bundle}</span>
+                          </div>
+                        )}
+                      </td>
                       <td style={{ color: "#4B5563", fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                       <td style={{ cursor: "pointer" }} onClick={() => setSelected(o)}>
                         <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
@@ -246,7 +267,7 @@ export default function ShopOrders({ lang, openOrderId, onOpenOrderHandled }) {
         )}
       </div>
       {selected && (
-        <OrderDrawer t={t} order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} onError={showToast} />
+        <OrderDrawer t={t} order={selected} onClose={() => setSelected(null)} onUpdated={handleUpdated} onContact={(o) => setContactOrder(o)} onError={showToast} onOpenSubscription={onOpenSubscription} />
       )}
       {contactOrder && <ContactModal t={t} order={contactOrder} onClose={() => setContactOrder(null)} />}
       {toast && <div className="print-toast">{toast}</div>}
@@ -293,12 +314,13 @@ function ContactModal({ t, order, onClose }) {
   );
 }
 
-function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
+function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError, onOpenSubscription }) {
   const [tracking, setTracking] = useState(order.tracking_number || "");
   const [savingTracking, setSavingTracking] = useState(false);
   const [promo, setPromo] = useState(null);
   const [bundleMap, setBundleMap] = useState({}); // shop_product_id -> { isBundle, items:[{name,weight}] }
   const [refunding, setRefunding] = useState(false);
+  const [subInfo, setSubInfo] = useState(null);
   const STATUS_LABELS = getStatusLabels(t);
   const PAYMENT_LABELS = getPaymentLabels(t);
   const DELIVERY_LABELS = getDeliveryLabels(t);
@@ -313,6 +335,22 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
       });
     return () => { cancelled = true; };
   }, [order.id, onError, t]);
+
+  useEffect(() => {
+    if (order.source !== "subscription" || !order.subscription_id) { setSubInfo(null); return; }
+    let cancelled = false;
+    (async () => {
+      const [{ data: sub }, { data: dels }] = await Promise.all([
+        supabase.from("subscriptions").select("interval_weeks, next_delivery_date").eq("id", order.subscription_id).maybeSingle(),
+        supabase.from("subscription_deliveries").select("id, scheduled_date").eq("subscription_id", order.subscription_id).order("scheduled_date", { ascending: true }),
+      ]);
+      if (cancelled) return;
+      const list = dels || [];
+      const idx = list.findIndex(d => d.id === order.subscription_delivery_id);
+      setSubInfo({ sub, num: idx >= 0 ? idx + 1 : null, count: list.length });
+    })();
+    return () => { cancelled = true; };
+  }, [order.id, order.source, order.subscription_id, order.subscription_delivery_id]);
 
   // Pull composition for any bundle product in this order (name + weight per sort).
   useEffect(() => {
@@ -385,6 +423,21 @@ function OrderDrawer({ t, order, onClose, onUpdated, onContact, onError }) {
           <button className="drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="drawer-body">
+
+          {order.source === "subscription" && (
+            <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, padding: 12, marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, color: "#1D4ED8", fontSize: 13, marginBottom: 6 }}>{t.so_sub_info}</div>
+              <div style={{ fontSize: 13, color: "#1F2937", display: "flex", flexDirection: "column", gap: 3 }}>
+                {subInfo && subInfo.num && <div>{tpl(t.so_sub_delivery_num, { n: subInfo.num, total: subInfo.count })}</div>}
+                {subInfo && subInfo.sub && <div>{t.sub_interval}: {tpl(t.sub_every, { n: subInfo.sub.interval_weeks })}</div>}
+                {subInfo && subInfo.sub && <div>{t.sub_next_delivery}: {fmtDate(subInfo.sub.next_delivery_date)}</div>}
+              </div>
+              <button className="btn btn-secondary btn-sm" style={{ marginTop: 8 }}
+                onClick={() => onOpenSubscription && order.subscription_id && onOpenSubscription(order.subscription_id)}>
+                {t.so_sub_open}
+              </button>
+            </div>
+          )}
 
           <div className="drawer-section">
             <div className="drawer-section-title">{t.so_composition_col}</div>

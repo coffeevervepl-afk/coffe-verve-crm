@@ -6,6 +6,7 @@ import ShopOrders from "./modules/shop/ShopOrders";
 import ShopProducts from "./modules/shop/ShopProducts";
 import Subscriptions, { SubscriptionWidget } from "./modules/shop/Subscriptions";
 import Referrals from "./modules/shop/Referrals";
+import Cancellations from "./modules/shop/Cancellations";
 import ShopReviews from "./modules/shop/ShopReviews";
 import ShopPromoCodes from "./modules/shop/ShopPromoCodes";
 import ShopCustomers from "./modules/shop/ShopCustomers";
@@ -534,7 +535,7 @@ function PassportPage({ token }) {
 // ============================================================
 // "staff" (Сотрудники) is intentionally never delegable — always owner-only,
 // regardless of what's in permissions.modules.
-const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_subscriptions", "shop_referrals", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics", "warehouse_raw", "production", "warehouse_finished", "suppliers"];
+const MODULE_ORDER = ["dashboard", "clients", "orders", "products", "warranties", "shop_orders", "shop_subscriptions", "shop_cancellations", "shop_referrals", "shop_products", "reviews", "discounts", "loyalty", "shop_customers", "shop_analytics", "warehouse_raw", "production", "warehouse_finished", "suppliers"];
 
 function canSeeModule(currentUser, key) {
   if (!currentUser) return false;
@@ -889,6 +890,7 @@ function CRMApp({ session }) {
         {page === "staff" && <Staff t={t} currentUser={currentUser} />}
         {page === "shop_orders" && <ShopOrders lang={lang} openOrderId={openShopOrderId} onOpenOrderHandled={() => setOpenShopOrderId(null)} onOpenSubscription={(id) => { setOpenSubscriptionId(id); setPage("shop_subscriptions"); }} />}
         {page === "shop_subscriptions" && <Subscriptions lang={lang} openId={openSubscriptionId} onOpenHandled={() => setOpenSubscriptionId(null)} />}
+        {page === "shop_cancellations" && <Cancellations lang={lang} />}
         {page === "shop_referrals" && <Referrals lang={lang} />}
         {page === "shop_products" && <ShopProducts lang={lang} />}
         {page === "reviews" && <ShopReviews lang={lang} />}
@@ -1000,6 +1002,7 @@ function Sidebar({ t, page, setPage, newWarranties, pendingReviews, newCrmOrders
   const shopItems = [
     { key: "shop_orders", label: t.nav_shop_orders, badge: paidShopOrders },
     { key: "shop_subscriptions", label: t.nav_shop_subscriptions },
+    { key: "shop_cancellations", label: t.nav_shop_cancellations },
     { key: "shop_referrals", label: t.nav_shop_referrals },
     { key: "shop_products", label: t.nav_shop_products },
     { key: "reviews", label: t.reviews, badge: pendingReviews },
@@ -1027,6 +1030,7 @@ function Sidebar({ t, page, setPage, newWarranties, pendingReviews, newCrmOrders
     shop_orders: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
     shop_subscriptions: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
     shop_referrals: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
+    shop_cancellations: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
     shop_products: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
     shop_customers: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
     shop_analytics: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
@@ -2633,6 +2637,7 @@ function getStaffModules(t) {
     { key: "products", label: t.products },
     { key: "warranties", label: t.warranties },
     { key: "shop_orders", label: t.nav_shop_orders },
+    { key: "shop_cancellations", label: t.nav_shop_cancellations },
     { key: "shop_referrals", label: t.nav_shop_referrals },
     { key: "shop_products", label: t.nav_shop_products },
     { key: "reviews", label: t.reviews },

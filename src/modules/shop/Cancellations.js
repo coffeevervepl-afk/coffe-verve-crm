@@ -7,16 +7,25 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString("ru-RU", { day: "2-dig
 const fmtMoney = (g) => g != null ? `${(Number(g) / 100).toFixed(2)} zł` : "—";
 
 const REASON_RU = {
-  too_much_coffee: "Слишком часто",
-  try_others:      "Хочет другие сорта",
-  too_expensive:   "Дорого",
-  delivery_issue:  "Проблемы с получением",
-  forgot_pickup:   "Забывает получить",
-  quality_issue:   "Не понравился вкус",
-  no_time:         "Нет времени",
-  other:           "Другое",
+  bad_taste:      "Не подошёл вкус",
+  too_often:      "Слишком часто",
+  too_expensive:  "Слишком дорого",
+  delivery_issue: "Проблема с доставкой",
+  found_another:  "Нашёл другого поставщика",
+  other:          "Другая причина",
 };
 const REASON_ORDER = Object.keys(REASON_RU);
+
+const SOLUTION_RU = {
+  change_composition: "Изменить состав",
+  show_discount:      "Показ скидок",
+  change_interval:    "Изменить интервал",
+  change_delivery:    "Изменить доставку",
+  pause_1m:           "Пауза 1 мес",
+  pause_2m:           "Пауза 2 мес",
+  pause_3m:           "Пауза 3 мес",
+};
+const SOLUTION_ORDER = ["change_composition", "change_interval", "show_discount", "change_delivery", "pause_1m", "pause_2m", "pause_3m"];
 
 const pill = (bg, color, border) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: bg, color, border: `1px solid ${border}` });
 const PILL = {
@@ -94,6 +103,17 @@ export default function Cancellations() {
     .filter(x => x.total > 0)
     .sort((a, b) => b.total - a.total);
 
+  // ── Offer conversion (all time) ──
+  const withOffer = rows.filter(r => r.offered_solution != null);
+  const offerAccepted = withOffer.filter(r => r.accepted_solution === true).length;
+  const offerConv = withOffer.length ? Math.round((offerAccepted / withOffer.length) * 100) : 0;
+  const offerStats = SOLUTION_ORDER
+    .map(sol => {
+      const shown = rows.filter(r => r.offered_solution === sol);
+      return { sol, shown: shown.length, accepted: shown.filter(r => r.accepted_solution === true).length };
+    })
+    .filter(x => x.shown > 0);
+
   const filtered = rows.filter(r =>
     inPeriod(r.cancelled_at) &&
     (reasonF === "all" || r.reason_code === reasonF) &&
@@ -112,6 +132,7 @@ export default function Cancellations() {
           <StatCard label="Удержано паузой" value={retainedM} color="#B45309" />
           <StatCard label="Retention rate" value={`${retention}%`} color="#15803D" />
           <StatCard label="Средний LTV перед отменой" value={fmtMoney(avgLtv)} />
+          <StatCard label="Конверсия оферов" value={`${offerConv}%`} color="#1D4ED8" />
         </div>
 
         {/* Filters */}
@@ -144,7 +165,7 @@ export default function Cancellations() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Клиент</th><th>Дата</th><th>Причина</th><th>Действие</th>
+                  <th>Клиент</th><th>Дата</th><th>Причина</th><th>Предложение</th><th>Принял</th><th>Действие</th>
                   <th>Прожил</th><th>Отправок</th><th>LTV</th><th>Вернулся</th>
                 </tr>
               </thead>
@@ -154,6 +175,8 @@ export default function Cancellations() {
                     <td style={{ fontWeight: 600 }}>{name(r.user_id)}</td>
                     <td>{fmtDate(r.cancelled_at)}</td>
                     <td>{REASON_RU[r.reason_code] || r.reason_code}{r.reason_code === "other" && r.reason_text ? ` — ${r.reason_text}` : ""}</td>
+                    <td>{r.offered_solution ? (SOLUTION_RU[r.offered_solution] || r.offered_solution) : "—"}</td>
+                    <td>{r.accepted_solution ? "Да" : "Нет"}</td>
                     <td><ActionBadge action={r.final_action} /></td>
                     <td>{r.subscription_lifetime_days != null ? `${r.subscription_lifetime_days} дн.` : "—"}</td>
                     <td>{r.total_deliveries_completed != null ? r.total_deliveries_completed : "—"}</td>
@@ -183,6 +206,30 @@ export default function Cancellations() {
                     <td>{x.total}</td>
                     <td>{thisMonth.length ? Math.round((x.total / thisMonth.length) * 100) : 0}%</td>
                     <td>{x.total ? Math.round((x.accepted / x.total) * 100) : 0}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Retention offer effectiveness (all time) */}
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-title">Эффективность retention-офферов</div>
+          {offerStats.length === 0 ? (
+            <div style={{ color: GREY, fontSize: 13 }}>Нет данных</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr><th>Предложение</th><th>Показано</th><th>Принято</th><th>Конверсия</th></tr>
+              </thead>
+              <tbody>
+                {offerStats.map(x => (
+                  <tr key={x.sol}>
+                    <td>{SOLUTION_RU[x.sol]}</td>
+                    <td>{x.shown}</td>
+                    <td>{x.accepted}</td>
+                    <td>{x.shown ? Math.round((x.accepted / x.shown) * 100) : 0}%</td>
                   </tr>
                 ))}
               </tbody>

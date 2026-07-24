@@ -19,6 +19,7 @@ export default function ShopReviews({ lang }) {
   const [tab, setTab] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [replyFor, setReplyFor] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
   const [toast, setToast] = useState(null);
 
   function showToast(msg) {
@@ -97,6 +98,14 @@ export default function ShopReviews({ lang }) {
                   {t.rev_review_label}{fmtDate(r.created_at)}{r.shop_orders && tpl(t.rev_purchase_label, { date: fmtDate(r.shop_orders.created_at), num: r.shop_orders.order_number })}
                 </div>
                 <p style={{ color: "#374151", fontSize: 13, lineHeight: 1.5, marginBottom: 10 }}>{r.review_text}</p>
+                {r.image_urls && r.image_urls.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                    {r.image_urls.map((src, i) => (
+                      <img key={i} src={src} alt="" onClick={() => setLightbox(src)}
+                        style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid #E5E7EB", cursor: "pointer" }} />
+                    ))}
+                  </div>
+                )}
                 {r.moderator_response && (
                   <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#4B5563", marginBottom: 10 }}>
                     <b>{t.rev_shop_response_label}</b> {r.moderator_response}
@@ -117,6 +126,11 @@ export default function ShopReviews({ lang }) {
         )}
       </div>
       {replyFor && <ReplyModal t={t} review={replyFor} onClose={() => setReplyFor(null)} onSave={saveReply} />}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <img src={lightbox} alt="" style={{ maxHeight: "90vh", maxWidth: "92vw", objectFit: "contain", borderRadius: 8 }} />
+        </div>
+      )}
       {toast && <div className="print-toast">{toast}</div>}
     </div>
   );

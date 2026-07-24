@@ -141,19 +141,22 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 640 }}>
-        <div className="modal-title">{t.sub_detail_title} · <StatusBadge status={sub.status} t={t} /></div>
-
+      <div className="modal sub-modal">
+        <div className="sub-modal-head">
+          <div className="modal-title">{t.sub_detail_title} · <StatusBadge status={sub.status} t={t} /></div>
+        </div>
+        <div className="sub-modal-body">
         <div className="drawer-section-title">{t.sub_composition}</div>
-        <table className="table" style={{ marginBottom: 16 }}>
+        <table className="table sub-cards" style={{ marginBottom: 16 }}>
           <thead><tr><th>{t.sub_col_items}</th><th>{t.sub_weight}</th><th>{t.sub_grind}</th><th>{t.sub_qty}</th><th style={{ textAlign: "right" }}>{t.sub_dcol_amount}</th></tr></thead>
           <tbody>
             {(sub.items || []).map((it, i) => (
               <tr key={i}>
-                <td>{it.name}</td><td>{wLabel(it.weight)}</td>
-                <td>{it.grind === "ground" ? t.sub_grind_ground : t.sub_grind_beans}</td>
-                <td>{it.quantity || 1}</td>
-                <td style={{ textAlign: "right" }}>{fmtMoney((Number(it.price) || 0) * (it.quantity || 1))}</td>
+                <td data-label={t.sub_col_items}>{it.name}</td>
+                <td data-label={t.sub_weight}>{wLabel(it.weight)}</td>
+                <td data-label={t.sub_grind}>{it.grind === "ground" ? t.sub_grind_ground : t.sub_grind_beans}</td>
+                <td data-label={t.sub_qty}>{it.quantity || 1}</td>
+                <td data-label={t.sub_dcol_amount} style={{ textAlign: "right" }}>{fmtMoney((Number(it.price) || 0) * (it.quantity || 1))}</td>
               </tr>
             ))}
           </tbody>
@@ -195,14 +198,14 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
         {deliveries.length === 0 ? (
           <div style={{ color: GREY, fontSize: 13 }}>{t.sub_no_deliveries}</div>
         ) : (
-          <table className="table">
+          <table className="table sub-cards">
             <thead><tr><th>{t.sub_dcol_date}</th><th>{t.sub_dcol_amount}</th><th>{t.sub_dcol_status}</th><th>{t.sd_tracking}</th><th>{t.sub_dcol_payment}</th><th>{t.sub_dcol_order}</th></tr></thead>
             <tbody>
               {deliveries.map(d => (
                 <tr key={d.id}>
-                  <td>{fmtDate(d.scheduled_date)}</td>
-                  <td>{fmtMoney(d.amount)}</td>
-                  <td>
+                  <td data-label={t.sub_dcol_date}>{fmtDate(d.scheduled_date)}</td>
+                  <td data-label={t.sub_dcol_amount}>{fmtMoney(d.amount)}</td>
+                  <td data-label={t.sub_dcol_status}>
                     <select className="input" style={{ padding: "4px 6px", fontSize: 12, height: "auto", minWidth: 130 }}
                       value={d.status} onChange={e => updateDelivery(d.id, { status: e.target.value })}>
                       <option value="pending">{t.sd_pending}</option>
@@ -212,20 +215,21 @@ function DetailModal({ sub, user, t, onClose, onChanged }) {
                       <option value="cancelled">{t.sd_cancelled}</option>
                     </select>
                   </td>
-                  <td>
+                  <td data-label={t.sd_tracking}>
                     <input className="input" style={{ padding: "4px 6px", fontSize: 12, height: "auto", width: 120 }}
                       defaultValue={d.tracking_number || ""} placeholder={t.sd_tracking}
                       onBlur={e => { const v = e.target.value.trim(); if (v !== (d.tracking_number || "")) updateDelivery(d.id, { tracking_number: v || null }); }} />
                   </td>
-                  <td>{d.payment_status}</td>
-                  <td>{d.order_id ? d.order_id.slice(0, 8) : "—"}</td>
+                  <td data-label={t.sub_dcol_payment}>{d.payment_status}</td>
+                  <td data-label={t.sub_dcol_order}>{d.order_id ? d.order_id.slice(0, 8) : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
 
-        <div className="modal-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 22 }}>
+        </div>
+        <div className="sub-modal-foot">
           {sub.status === "active" && <button className="btn btn-secondary" disabled={saving} onClick={pause}>{t.sub_pause}</button>}
           {sub.status === "paused" && <button className="btn btn-secondary" disabled={saving} onClick={resume}>{t.sub_resume}</button>}
           {sub.status !== "cancelled" && <button className="btn btn-secondary" disabled={saving} onClick={cancel}>{t.sub_cancel}</button>}

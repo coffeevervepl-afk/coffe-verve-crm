@@ -177,6 +177,24 @@ const styles = `
   .modal { background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; padding: 28px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
   .modal-title { font-size: 16px; font-weight: 700; color: #1F2937; margin-bottom: 20px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  /* Wide subscription modal: fixed head/foot, only the body scrolls (vertically). */
+  .sub-modal { max-width: 900px; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .sub-modal-head { flex-shrink: 0; padding: 20px 26px; border-bottom: 1px solid #EEF0F2; }
+  .sub-modal-head .modal-title { margin-bottom: 0; }
+  .sub-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 18px 26px 22px; }
+  .sub-modal-foot { flex-shrink: 0; padding: 14px 26px; border-top: 1px solid #EEF0F2; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .sub-modal-foot .modal-actions { margin: 0; }
+  /* Narrow screens: turn the wide tables into stacked label/value cards (no h-scroll). */
+  @media (max-width: 640px) {
+    .sub-cards thead { display: none; }
+    .sub-cards, .sub-cards tbody, .sub-cards tr, .sub-cards td { display: block; width: 100%; }
+    .sub-cards tr { border: 1px solid #E5E7EB; border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; }
+    .sub-cards tr:last-child td { border-bottom: none; }
+    .sub-cards tr:hover td { background: none; }
+    .sub-cards td { border: none; padding: 6px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: right; }
+    .sub-cards td::before { content: attr(data-label); font-size: 10px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.04em; text-align: left; flex-shrink: 0; }
+    .sub-cards td .input { width: 100% !important; max-width: 190px; }
+  }
   .client-row { cursor: pointer; }
   .client-row:hover td { background: #F9FAFB !important; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }

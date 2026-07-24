@@ -70,7 +70,16 @@ const styles = `
   .sidebar-logo { padding: 18px 16px 16px; border-bottom: 1px solid rgba(255,255,255,0.12); }
   .sidebar-logo h1 { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.03em; }
   .sidebar-logo p { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
-  .sidebar-nav { flex: 1; padding: 10px 0; }
+  .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.28) transparent; }
+  .sidebar-nav::-webkit-scrollbar { width: 6px; }
+  .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 3px; }
+  .sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.40); }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; padding: 14px 18px 6px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; transition: color 0.15s; }
+  .nav-group-header:hover { color: rgba(255,255,255,0.72); }
+  .nav-group-chevron { flex-shrink: 0; transform: rotate(-90deg); transition: transform 0.2s ease; opacity: 0.75; }
+  .nav-group-chevron.open { transform: rotate(0deg); }
+  .nav-group-body { overflow: hidden; transition: max-height 0.25s ease; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.65); transition: all 0.15s; border-left: 3px solid transparent; }
   .nav-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
   .nav-item.active { color: #fff; background: rgba(34,197,94,0.15); border-left-color: #22C55E; }
@@ -1017,6 +1026,26 @@ function Sidebar({ t, page, setPage, newWarranties, pendingReviews, newCrmOrders
     { key: "warehouse_finished", label: t.nav_warehouse_finished },
     { key: "suppliers", label: t.nav_suppliers },
   ].filter(item => canSee(item.key));
+
+  // Collapsible sidebar groups. Add a new group here + its items array above.
+  const navGroups = [
+    { id: "warehouse", label: t.nav_section_warehouse, items: warehouseItems },
+    { id: "shop", label: t.nav_section_shop, items: shopItems },
+  ];
+  const activeGroupId = (navGroups.find(g => g.items.some(it => it.key === page)) || {}).id || null;
+  const [openGroups, setOpenGroups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("crm_sidebar_groups_v1")) || {}; } catch { return {}; }
+  });
+  // Force the group that owns the active page open whenever the page changes.
+  useEffect(() => {
+    if (activeGroupId) setOpenGroups(prev => (prev[activeGroupId] ? prev : { ...prev, [activeGroupId]: true }));
+  }, [activeGroupId]);
+  // Remember the user's manual expand/collapse choices across reloads.
+  useEffect(() => {
+    try { localStorage.setItem("crm_sidebar_groups_v1", JSON.stringify(openGroups)); } catch { /* ignore */ }
+  }, [openGroups]);
+  const toggleGroup = (id) => setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
+
   const icons = {
     dashboard: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
     clients: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
@@ -1058,10 +1087,17 @@ function Sidebar({ t, page, setPage, newWarranties, pendingReviews, newCrmOrders
       </div>
       <nav className="sidebar-nav">
         {coreItems.map(renderItem)}
-        <div className="nav-section-label">{t.nav_section_warehouse}</div>
-        {warehouseItems.map(renderItem)}
-        <div className="nav-section-label">{t.nav_section_shop}</div>
-        {shopItems.map(renderItem)}
+        {navGroups.map(g => g.items.length > 0 && (
+          <div className="nav-group" key={g.id}>
+            <button type="button" className="nav-group-header" onClick={() => toggleGroup(g.id)} aria-expanded={!!openGroups[g.id]}>
+              <span>{g.label}</span>
+              <svg className={`nav-group-chevron ${openGroups[g.id] ? "open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+            </button>
+            <div className="nav-group-body" style={{ maxHeight: openGroups[g.id] ? g.items.length * 42 + 8 : 0 }}>
+              {g.items.map(renderItem)}
+            </div>
+          </div>
+        ))}
       </nav>
     </div>
   );
